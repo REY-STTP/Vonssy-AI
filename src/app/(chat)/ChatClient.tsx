@@ -168,7 +168,7 @@ export default function ChatClient({ user }: ChatClientProps) {
 
           {messages.length === 0 && !streamingContent && !isStreaming ? (
             /* ── Empty / Welcome State — centered greeting + composer ── */
-            <div className="flex-1 flex flex-col items-center justify-center px-4 pb-8">
+            <div className="flex-1 flex flex-col items-center justify-start pt-[15vh] md:justify-center md:pt-0 px-4 pb-8">
               <div className="flex flex-col items-center text-center mb-8 animate-fade-in">
                 <h2 className="font-body font-medium text-2xl text-text-primary mb-2">
                   {(user.preferredName || user.name)
