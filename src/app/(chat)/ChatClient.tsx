@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import Sidebar from "@/components/chat/Sidebar";
+import ChatHeader from "@/components/chat/ChatHeader";
 import MessageThread from "@/components/chat/MessageThread";
 import Composer from "@/components/chat/Composer";
 import SettingsModal from "@/components/chat/SettingsModal";
@@ -148,26 +149,69 @@ export default function ChatClient({ user }: ChatClientProps) {
         )}
 
         <div className="flex-1 flex flex-col min-h-0 w-full">
-          {/* Message Thread */}
-          <MessageThread
-            messages={messages}
-            truncationIndex={truncationIndex}
-            streamingContent={streamingContent}
-            isStreaming={isStreaming}
-            onEditMessage={editMessage}
-            onRegenerateFrom={regenerateFrom}
-            displayName={user.preferredName || user.name}
-          />
+          {/* Chat Header — always visible */}
+          {(() => {
+            const activeSession = activeSessionId
+              ? sessions.find(s => s.id === activeSessionId)
+              : null;
+            return (
+              <ChatHeader
+                sessionTitle={activeSession?.title ?? null}
+                isPinned={activeSession?.isPinned ?? null}
+                onRename={activeSession ? (newTitle) => renameSession(activeSessionId!, newTitle) : () => {}}
+                onTogglePin={activeSession ? () => togglePin(activeSessionId!, !activeSession.isPinned) : () => {}}
+                onDelete={activeSession ? () => handleDeleteSession(activeSessionId!) : () => {}}
+                hasSession={!!activeSession}
+              />
+            );
+          })()}
 
-          {/* Composer */}
-          <Composer
-            selectedModel={selectedModel}
-            onModelSelect={setSelectedModel}
-            onSend={sendMessage}
-            onStop={stopGeneration}
-            isStreaming={isStreaming}
-            quota={quota ? { remaining: quota.remaining, limit: quota.limit } : undefined}
-          />
+          {messages.length === 0 && !streamingContent && !isStreaming ? (
+            /* ── Empty / Welcome State — centered greeting + composer ── */
+            <div className="flex-1 flex flex-col items-center justify-center px-4 pb-8">
+              <div className="flex flex-col items-center text-center mb-8 animate-fade-in">
+                <h2 className="font-body font-medium text-2xl text-text-primary mb-2">
+                  {(user.preferredName || user.name)
+                    ? `Hi ${user.preferredName || user.name}, how can I help you today?`
+                    : "How can I help you today?"}
+                </h2>
+                <p className="text-text-secondary text-base font-body max-w-md mt-2">
+                  Select a model using the sigils below, then type your message.
+                </p>
+              </div>
+              <div className="w-full max-w-2xl">
+                <Composer
+                  selectedModel={selectedModel}
+                  onModelSelect={setSelectedModel}
+                  onSend={sendMessage}
+                  onStop={stopGeneration}
+                  isStreaming={isStreaming}
+                  quota={quota ? { remaining: quota.remaining, limit: quota.limit } : undefined}
+                />
+              </div>
+            </div>
+          ) : (
+            /* ── Active Chat — normal thread + bottom composer ── */
+            <>
+              <MessageThread
+                messages={messages}
+                truncationIndex={truncationIndex}
+                streamingContent={streamingContent}
+                isStreaming={isStreaming}
+                onEditMessage={editMessage}
+                onRegenerateFrom={regenerateFrom}
+                displayName={user.preferredName || user.name}
+              />
+              <Composer
+                selectedModel={selectedModel}
+                onModelSelect={setSelectedModel}
+                onSend={sendMessage}
+                onStop={stopGeneration}
+                isStreaming={isStreaming}
+                quota={quota ? { remaining: quota.remaining, limit: quota.limit } : undefined}
+              />
+            </>
+          )}
         </div>
       </main>
 

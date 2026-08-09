@@ -38,23 +38,11 @@ export default function MessageThread({
   const [editContent, setEditContent] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const editTextareaRef = useRef<HTMLTextAreaElement>(null);
-  const editMirrorRef = useRef<HTMLSpanElement>(null);
 
-  // Auto-resize edit textarea and focus at end
+  // Focus edit textarea at end of text
   useEffect(() => {
     const el = editTextareaRef.current;
-    const mirror = editMirrorRef.current;
     if (el && editingId) {
-      el.style.height = "auto";
-      el.style.height = `${Math.min(el.scrollHeight, 320)}px`;
-      
-      if (mirror) {
-        mirror.textContent = editContent || " ";
-        const measuredWidth = mirror.offsetWidth + 34; // px-4 (32px) + border (2px)
-        const clamped = Math.max(80, Math.min(measuredWidth, 672));
-        el.style.width = `${clamped}px`;
-      }
-
       if (document.activeElement !== el) {
         el.focus();
         const length = el.value.length;
@@ -125,18 +113,7 @@ export default function MessageThread({
       onScroll={handleScroll}
       className="flex-1 overflow-y-auto relative px-4"
     >
-      <div className="max-w-3xl mx-auto w-full pt-16 pb-6 space-y-[1.5rem]">
-        {/* Empty state */}
-        {messages.length === 0 && !streamingContent && (
-          <div className="flex flex-col items-center justify-center min-h-[50vh] text-center animate-fade-in">
-            <h2 className="font-body font-medium text-2xl text-text-primary mb-2">
-              {displayName ? `Hi ${displayName}, how can I help you today?` : "How can I help you today?"}
-            </h2>
-            <p className="text-text-secondary text-base font-body max-w-md mt-2">
-              Select a model using the sigils below, then type your message.
-            </p>
-          </div>
-        )}
+      <div className="max-w-3xl mx-auto w-full pt-4 pb-6 space-y-[1.5rem]">
 
         {/* Messages */}
         {messages.map((msg, index) => {
@@ -146,35 +123,36 @@ export default function MessageThread({
           return (
             <div key={msg.id} className="group flex flex-col">
               {editingId === msg.id ? (
-              <div className="self-end max-w-[85%] w-fit flex flex-col items-end gap-2 relative">
-                <span
-                  ref={editMirrorRef}
-                  className="absolute invisible whitespace-pre text-[15px]"
-                  aria-hidden="true"
-                />
-                <textarea
-                  ref={editTextareaRef}
-                  rows={1}
-                  value={editContent}
-                  onChange={(e) => setEditContent(e.target.value)}
-                  className="bg-surface-raised border border-border focus:border-accent outline-none rounded-[12px] px-4 py-3 text-[15px] text-text-primary placeholder:text-text-secondary resize-none min-h-0 max-h-[320px] overflow-y-auto leading-[1.6] transition-[color,background-color,border-color,width] duration-150 ease-out"
-                  style={{ scrollbarWidth: 'none' }}
-                />
-                <div className="flex gap-2 justify-end">
-                  <button
-                    type="button"
-                    onClick={cancelEdit}
-                    className="btn-ghost text-xs px-3 py-1.5"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => submitEdit(msg.id)}
-                    className="btn-primary text-xs px-3 py-1.5"
-                  >
-                    Save
-                  </button>
+              <div className="self-end max-w-[85%] flex flex-col items-end gap-1">
+                <div className="flex min-w-0 flex-col items-end gap-1 ms-auto max-w-full">
+                  {/* Edit bubble — same visual wrapper as the regular message bubble */}
+                  <div className="bg-surface-raised text-text-primary rounded-[12px] px-4 py-3 leading-relaxed max-w-full min-w-[3ch] shadow-[inset_0_0_0_1.5px_var(--color-accent)] transition-shadow duration-150">
+                    <textarea
+                      ref={editTextareaRef}
+                      rows={1}
+                      value={editContent}
+                      onChange={(e) => setEditContent(e.target.value)}
+                      className="w-full block resize-none border-0 bg-transparent p-0 shadow-none outline-none text-[15px] text-text-primary leading-relaxed [field-sizing:content] max-h-[320px] overflow-y-auto whitespace-pre-wrap break-words"
+                      style={{ scrollbarWidth: 'none' }}
+                    />
+                  </div>
+                  {/* Action buttons — outside the bubble */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={cancelEdit}
+                      className="btn-ghost text-xs px-3 py-1.5"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => submitEdit(msg.id)}
+                      className="btn-primary text-xs px-3 py-1.5"
+                    >
+                      Save
+                    </button>
+                  </div>
                 </div>
               </div>
             ) : msg.role === "user" ? (
