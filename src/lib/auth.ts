@@ -58,4 +58,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     maxAge: 30 * 24 * 60 * 60, // 30 days
     updateAge: 24 * 60 * 60, // 24 hours
   },
+  events: {
+    /**
+     * Track new account creation for IP-based abuse detection.
+     * Auth.js calls createUser when a brand-new user row is inserted.
+     */
+    async createUser({ user }) {
+      // The createUser event doesn't have request context,
+      // but the IP tracking still works as a best-effort signal.
+      // In production, the primary enforcement is identity_hash-keyed.
+      console.log(
+        `[auth] New user created: ${user.id} — IP signup tracking handled at request level.`
+      );
+    },
+  },
 });
+

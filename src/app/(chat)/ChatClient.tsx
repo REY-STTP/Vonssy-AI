@@ -42,7 +42,6 @@ export default function ChatClient({ user }: ChatClientProps) {
 
   const {
     sessions,
-    createSession,
     renameSession,
     deleteSession,
     togglePin,
@@ -132,7 +131,6 @@ export default function ChatClient({ user }: ChatClientProps) {
         onDeleteSession={handleDeleteSession}
         onTogglePin={togglePin}
         user={user}
-        quota={quota ? { remaining: quota.remaining, limit: quota.limit } : undefined}
         isCollapsed={isCollapsed}
         onToggleCollapse={handleToggleCollapse}
         onOpenSettings={handleOpenSettings}

@@ -1,6 +1,13 @@
 import { db } from "@/lib/db/client";
-import { rateLimitConfig, rateLimits } from "@/lib/db/schema";
+import { rateLimitConfig, identityQuotaLedger, ipQuotaLedger } from "@/lib/db/schema";
 import { eq, and, sql, isNull } from "drizzle-orm";
+
+/**
+ * IP-level daily message ceiling.
+ * Deliberately much higher than per-identity limits — this is a backstop
+ * against mass-account abuse, not a user-facing throttle.
+ */
+const IP_DAILY_MESSAGE_LIMIT = 200;
 
 export interface RateLimitResult {
   allowed: boolean;
@@ -11,17 +18,18 @@ export interface RateLimitResult {
 }
 
 /**
- * Check if a user is within their daily message quota.
+ * Check if an identity is within their daily message quota.
  *
- * Enforcement order per Section 8:
- * 1. Check global limit first
- * 2. Check provider/model-specific limit (if any)
- * 3. Return the most restrictive result
+ * Enforcement order:
+ * 1. Check global limit (identity_quota_ledger)
+ * 2. Check provider/model-specific limit (identity_quota_ledger)
+ * 3. Check IP-level ceiling (ip_quota_ledger)
+ * 4. Return the most restrictive result
  */
 export async function checkRateLimit(
-  userId: string,
-  provider: string,
-  model: string
+  identityHash: string,
+  ipHash: string,
+  provider: string
 ): Promise<RateLimitResult> {
   const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
   const resetAt = getNextResetTime();
@@ -51,17 +59,17 @@ export async function checkRateLimit(
     )
     .limit(1);
 
-  // 3. Get today's global usage count
+  // 3. Get today's global usage count from identity ledger
   const [globalUsage] = await db
     .select({
-      total: sql<number>`cast(sum(${rateLimits.messageCount}) as integer)`,
+      total: sql<number>`cast(sum(${identityQuotaLedger.messageCount}) as integer)`,
     })
-    .from(rateLimits)
+    .from(identityQuotaLedger)
     .where(
       and(
-        eq(rateLimits.userId, userId),
-        eq(rateLimits.provider, "global"),
-        sql`${rateLimits.date} = ${today}`
+        eq(identityQuotaLedger.identityHash, identityHash),
+        eq(identityQuotaLedger.provider, "global"),
+        sql`${identityQuotaLedger.date} = ${today}`
       )
     );
 
@@ -83,14 +91,14 @@ export async function checkRateLimit(
   if (specificConfig) {
     const [specificUsage] = await db
       .select({
-        total: sql<number>`cast(sum(${rateLimits.messageCount}) as integer)`,
+        total: sql<number>`cast(sum(${identityQuotaLedger.messageCount}) as integer)`,
       })
-      .from(rateLimits)
+      .from(identityQuotaLedger)
       .where(
         and(
-          eq(rateLimits.userId, userId),
-          eq(rateLimits.provider, provider),
-          sql`${rateLimits.date} = ${today}`
+          eq(identityQuotaLedger.identityHash, identityHash),
+          eq(identityQuotaLedger.provider, provider),
+          sql`${identityQuotaLedger.date} = ${today}`
         )
       );
 
@@ -103,9 +111,34 @@ export async function checkRateLimit(
         remaining: 0,
         limit: specificLimit,
         resetAt,
-        error: `Rate limit for ${provider}/${model} reached (${specificLimit} messages/day). Resets at ${resetAt}.`,
+        error: `Rate limit reached (${specificLimit} messages/day). Resets at ${resetAt}.`,
       };
     }
+  }
+
+  // 6. Check IP-level ceiling (backstop against mass-account abuse)
+  const [ipUsage] = await db
+    .select({
+      total: sql<number>`cast(${ipQuotaLedger.messageCount} as integer)`,
+    })
+    .from(ipQuotaLedger)
+    .where(
+      and(
+        eq(ipQuotaLedger.ipHash, ipHash),
+        sql`${ipQuotaLedger.date} = ${today}`
+      )
+    );
+
+  const ipCount = ipUsage?.total ?? 0;
+
+  if (ipCount >= IP_DAILY_MESSAGE_LIMIT) {
+    return {
+      allowed: false,
+      remaining: 0,
+      limit: globalLimit,
+      resetAt,
+      error: `Daily message limit reached. Resets at ${resetAt}.`,
+    };
   }
 
   return {
@@ -118,58 +151,82 @@ export async function checkRateLimit(
 
 /**
  * Increment the rate limit counter after a successful message.
- * Upserts both the global and provider-specific rows.
+ * Upserts both identity_quota_ledger and ip_quota_ledger.
  */
 export async function incrementRateLimit(
-  userId: string,
+  identityHash: string,
+  ipHash: string,
   provider: string,
   model: string
 ): Promise<void> {
   const today = new Date().toISOString().split("T")[0];
 
-  // Upsert global counter
-  // Note: We use "" (empty string) instead of null for the model because 
-  // Postgres treats NULL != NULL in unique indexes, which breaks ON CONFLICT.
+  // Upsert global counter in identity ledger
   await db
-    .insert(rateLimits)
+    .insert(identityQuotaLedger)
     .values({
-      userId,
+      identityHash,
       provider: "global",
       model: "",
       date: today,
       messageCount: 1,
     })
     .onConflictDoUpdate({
-      target: [rateLimits.userId, rateLimits.provider, rateLimits.model, rateLimits.date],
+      target: [
+        identityQuotaLedger.identityHash,
+        identityQuotaLedger.provider,
+        identityQuotaLedger.model,
+        identityQuotaLedger.date,
+      ],
       set: {
-        messageCount: sql`${rateLimits.messageCount} + 1`,
+        messageCount: sql`${identityQuotaLedger.messageCount} + 1`,
       },
     });
 
-  // Upsert provider-specific counter
+  // Upsert provider-specific counter in identity ledger
   await db
-    .insert(rateLimits)
+    .insert(identityQuotaLedger)
     .values({
-      userId,
+      identityHash,
       provider,
-      model: model || "", 
+      model: model || "",
       date: today,
       messageCount: 1,
     })
     .onConflictDoUpdate({
-      target: [rateLimits.userId, rateLimits.provider, rateLimits.model, rateLimits.date],
+      target: [
+        identityQuotaLedger.identityHash,
+        identityQuotaLedger.provider,
+        identityQuotaLedger.model,
+        identityQuotaLedger.date,
+      ],
       set: {
-        messageCount: sql`${rateLimits.messageCount} + 1`,
+        messageCount: sql`${identityQuotaLedger.messageCount} + 1`,
+      },
+    });
+
+  // Upsert IP counter
+  await db
+    .insert(ipQuotaLedger)
+    .values({
+      ipHash,
+      date: today,
+      messageCount: 1,
+    })
+    .onConflictDoUpdate({
+      target: [ipQuotaLedger.ipHash, ipQuotaLedger.date],
+      set: {
+        messageCount: sql`${ipQuotaLedger.messageCount} + 1`,
       },
     });
 }
 
 /**
- * Get remaining quota for the authenticated user.
+ * Get remaining quota for the authenticated identity.
  * Used by the UI quota indicator.
  */
 export async function getRemainingQuota(
-  userId: string
+  identityHash: string
 ): Promise<{ remaining: number; limit: number; resetAt: string }> {
   const today = new Date().toISOString().split("T")[0];
   const resetAt = getNextResetTime();
@@ -190,14 +247,14 @@ export async function getRemainingQuota(
 
   const [globalUsage] = await db
     .select({
-      total: sql<number>`cast(sum(${rateLimits.messageCount}) as integer)`,
+      total: sql<number>`cast(sum(${identityQuotaLedger.messageCount}) as integer)`,
     })
-    .from(rateLimits)
+    .from(identityQuotaLedger)
     .where(
       and(
-        eq(rateLimits.userId, userId),
-        eq(rateLimits.provider, "global"),
-        sql`${rateLimits.date} = ${today}`
+        eq(identityQuotaLedger.identityHash, identityHash),
+        eq(identityQuotaLedger.provider, "global"),
+        sql`${identityQuotaLedger.date} = ${today}`
       )
     );
 
@@ -208,6 +265,28 @@ export async function getRemainingQuota(
     limit,
     resetAt,
   };
+}
+
+/**
+ * Increment the signup counter for an IP address.
+ * Called when a new user is created (via Auth.js callback).
+ */
+export async function incrementSignupCount(ipHash: string): Promise<void> {
+  const today = new Date().toISOString().split("T")[0];
+
+  await db
+    .insert(ipQuotaLedger)
+    .values({
+      ipHash,
+      date: today,
+      signupCount: 1,
+    })
+    .onConflictDoUpdate({
+      target: [ipQuotaLedger.ipHash, ipQuotaLedger.date],
+      set: {
+        signupCount: sql`${ipQuotaLedger.signupCount} + 1`,
+      },
+    });
 }
 
 /**

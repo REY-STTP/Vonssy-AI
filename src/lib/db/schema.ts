@@ -157,24 +157,36 @@ export const rateLimitConfig = pgTable(
   ]
 );
 
-export const rateLimits = pgTable(
-  "rate_limits",
+export const identityQuotaLedger = pgTable(
+  "identity_quota_ledger",
   {
-    userId: uuid("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+    identityHash: text("identity_hash").notNull(),
     provider: text("provider").notNull(),
-    model: text("model"),
+    model: text("model").notNull().default(""),
     date: date("date").notNull().defaultNow(),
     messageCount: integer("message_count").default(0),
   },
   (table) => [
-    uniqueIndex("rate_limits_pk").on(
-      table.userId,
+    uniqueIndex("identity_quota_ledger_pk").on(
+      table.identityHash,
       table.provider,
       table.model,
       table.date
     ),
-    index("idx_rate_limits_user_date").on(table.userId, table.date),
+    index("idx_identity_ledger_date").on(table.identityHash, table.date),
   ]
 );
+
+export const ipQuotaLedger = pgTable(
+  "ip_quota_ledger",
+  {
+    ipHash: text("ip_hash").notNull(),
+    date: date("date").notNull().defaultNow(),
+    messageCount: integer("message_count").default(0),
+    signupCount: integer("signup_count").default(0),
+  },
+  (table) => [
+    uniqueIndex("ip_quota_ledger_pk").on(table.ipHash, table.date),
+  ]
+);
+

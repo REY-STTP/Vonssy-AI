@@ -1,11 +1,12 @@
 import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db/client";
-import { messages as messagesTable, chatSessions, usageLogs, users } from "@/lib/db/schema";
+import { messages as messagesTable, chatSessions, usageLogs, users, accounts } from "@/lib/db/schema";
 import { getProvider, isValidGateway, getModelEntry } from "@/lib/ai-providers";
 import { checkRateLimit, incrementRateLimit } from "@/lib/rate-limit";
-import { eq, sql } from "drizzle-orm";
-import type { StreamChunk, TokenUsage } from "@/lib/ai-providers/types";
+import { computeIdentityHash, computeIpHash, getClientIp } from "@/lib/quota-hash";
+import { eq } from "drizzle-orm";
+import type { TokenUsage } from "@/lib/ai-providers/types";
 
 /**
  * POST /api/chat — Streaming chat endpoint.
@@ -28,6 +29,27 @@ export async function POST(request: NextRequest) {
     );
   }
   const userId = session.user.id;
+
+  // ── Resolve OAuth identity for quota enforcement ──────────
+  const [accountData] = await db
+    .select({
+      provider: accounts.provider,
+      providerAccountId: accounts.providerAccountId,
+    })
+    .from(accounts)
+    .where(eq(accounts.userId, userId))
+    .limit(1);
+
+  if (!accountData) {
+    return new Response(
+      JSON.stringify({ error: "No linked OAuth account found." }),
+      { status: 403, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  const identityHash = computeIdentityHash(accountData.provider, accountData.providerAccountId);
+  const clientIp = getClientIp(request.headers);
+  const ipHash = computeIpHash(clientIp);
 
   // Fetch user's preferred name and DOB for AI personalization
   let displayName: string | null = null;
@@ -93,7 +115,7 @@ export async function POST(request: NextRequest) {
   }
 
   // ── 3. Rate Limit Check ───────────────────────────────────
-  const rateLimitResult = await checkRateLimit(userId, gateway, model);
+  const rateLimitResult = await checkRateLimit(identityHash, ipHash, gateway);
   if (!rateLimitResult.allowed) {
     return new Response(
       JSON.stringify({
@@ -134,14 +156,13 @@ export async function POST(request: NextRequest) {
 
   // Persist the user message
   const userMsg = chatMessages[chatMessages.length - 1];
-  const [savedUserMsg] = await db
+  await db
     .insert(messagesTable)
     .values({
       chatSessionId: sessionId,
       role: "user",
       content: userMsg.content,
-    })
-    .returning({ id: messagesTable.id });
+    });
 
   // Update session timestamp
   await db
@@ -328,7 +349,7 @@ export async function POST(request: NextRequest) {
 
       // ── 6. Increment rate limit on success ──────────────
       if (!hasError && fullContent) {
-        await incrementRateLimit(userId, gateway, model);
+        await incrementRateLimit(identityHash, ipHash, gateway, model);
       }
 
       // Send the [DONE] sentinel and close

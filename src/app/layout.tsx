@@ -46,6 +46,7 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${inter.variable} ${jetbrainsMono.variable}`}
+      data-scroll-behavior="smooth"
       suppressHydrationWarning
     >
       <body>
