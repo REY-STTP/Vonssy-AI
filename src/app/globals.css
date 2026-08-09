@@ -1,0 +1,252 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg: #FAF9F6;
+    --surface: #FFFFFF;
+    --surface-raised: #F0EEE8;
+    --border: #E5E2DA;
+    --text-primary: #1F1E1C;
+    --text-secondary: #6B6862;
+    --accent: #C15F3C;
+    --accent-alpha: rgba(193, 95, 60, 0.15);
+    --accent-contrast: #FFFFFF;
+    --danger: #B3432B;
+    --danger-alpha: rgba(179, 67, 43, 0.1);
+  }
+
+  [data-theme="dark"] {
+    --bg: #1A1918;
+    --surface: #232220;
+    --surface-raised: #2C2B28;
+    --border: #3A3835;
+    --text-primary: #EDEAE4;
+    --text-secondary: #9C978E;
+    --accent: #D97B54;
+    --accent-alpha: rgba(217, 123, 84, 0.15);
+    --accent-contrast: #1A1918;
+    --danger: #E06A4C;
+    --danger-alpha: rgba(224, 106, 76, 0.1);
+  }
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-bg text-text-primary font-body antialiased;
+    min-height: 100dvh;
+  }
+
+  ::selection {
+    @apply bg-accent-alpha text-accent;
+  }
+
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-accent;
+    outline-style: solid;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-text-secondary;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-surface border border-border rounded-2xl shadow-soft;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2
+           px-4 py-2 font-body font-medium text-sm
+           rounded-lg transition-colors duration-150 ease-out
+           select-none;
+  }
+
+  .btn-primary {
+    @apply btn bg-accent text-accent-contrast;
+  }
+
+  .btn-primary:hover {
+    @apply opacity-90;
+  }
+
+  .btn-secondary {
+    @apply btn bg-surface-raised text-text-primary border border-border;
+  }
+
+  .btn-secondary:hover {
+    @apply border-text-secondary;
+  }
+
+  .btn-ghost {
+    @apply btn bg-transparent text-text-secondary;
+  }
+
+  .btn-ghost:hover {
+    @apply text-text-primary bg-surface-raised;
+  }
+
+  .btn-danger {
+    @apply btn bg-danger text-accent-contrast;
+  }
+
+  .btn-danger:hover {
+    @apply opacity-90;
+  }
+
+  .input-base {
+    @apply w-full bg-surface text-text-primary placeholder:text-text-secondary
+           border border-border rounded-lg
+           focus:outline-none focus:border-accent
+           transition-colors duration-200;
+  }
+}
+
+@layer utilities {
+  .shadow-soft {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  }
+  
+  [data-theme="dark"] .shadow-soft {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  }
+
+  .shadow-dropdown {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  }
+
+  [data-theme="dark"] .shadow-dropdown {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Markdown Content Styles */
+  .prose-vonssy {
+    @apply text-text-primary font-body max-w-none;
+  }
+  
+  .prose-vonssy p {
+    @apply mb-4 leading-relaxed;
+  }
+  
+  .prose-vonssy h1, .prose-vonssy h2, .prose-vonssy h3, .prose-vonssy h4 {
+    @apply font-body font-semibold text-text-primary mt-8 mb-4 tracking-tight;
+  }
+  
+  .prose-vonssy h1 { @apply text-2xl; }
+  .prose-vonssy h2 { @apply text-xl; }
+  .prose-vonssy h3 { @apply text-lg; }
+  
+  .prose-vonssy ul {
+    @apply list-disc list-outside ml-6 mb-4 space-y-1 text-text-primary;
+  }
+  
+  .prose-vonssy ol {
+    @apply list-decimal list-outside ml-6 mb-4 space-y-1 text-text-primary;
+  }
+  
+  .prose-vonssy strong {
+    @apply font-semibold text-text-primary;
+  }
+  
+  .prose-vonssy a {
+    @apply text-accent underline underline-offset-4 decoration-1 decoration-border hover:decoration-accent transition-colors;
+  }
+  
+  .prose-vonssy blockquote {
+    @apply border-l-4 border-border pl-4 py-1 my-4 bg-surface-raised text-text-secondary italic rounded-r-lg;
+  }
+  
+  .prose-vonssy code:not(pre code) {
+    @apply font-mono text-[0.9em] bg-surface-raised border border-border px-1.5 py-0.5 rounded-md text-text-primary;
+  }
+  
+  .prose-vonssy pre {
+    @apply my-6 bg-surface border border-border rounded-lg p-4 overflow-x-auto shadow-soft;
+  }
+  
+  .prose-vonssy pre code {
+    @apply font-mono text-sm text-text-primary bg-transparent p-0 border-0;
+  }
+}
+
+@keyframes dropdown-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modal-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes modal-overlay-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
