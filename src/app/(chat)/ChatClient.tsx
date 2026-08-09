@@ -52,6 +52,7 @@ export default function ChatClient({ user }: ChatClientProps) {
 
   const {
     messages,
+    truncationIndex,
     streamingContent,
     isStreaming,
     error,
@@ -150,6 +151,7 @@ export default function ChatClient({ user }: ChatClientProps) {
           {/* Message Thread */}
           <MessageThread
             messages={messages}
+            truncationIndex={truncationIndex}
             streamingContent={streamingContent}
             isStreaming={isStreaming}
             onEditMessage={editMessage}

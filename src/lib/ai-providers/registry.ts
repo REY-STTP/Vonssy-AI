@@ -78,9 +78,21 @@ export interface ModelCatalogEntry {
 
 export const MODEL_CATALOG: ModelCatalogEntry[] = [
   {
+    label: "Claude Opus 4.7",
+    gateway: "seekai",
+    model: "claude-opus-4-7",
+    sigil: "seekai",
+  },
+  {
     label: "Claude Opus 4.8",
     gateway: "seekai",
     model: "claude-opus-4-8",
+    sigil: "seekai",
+  },
+  {
+    label: "Claude Opus 5",
+    gateway: "seekai",
+    model: "claude-opus-5",
     sigil: "seekai",
   },
   {
@@ -98,7 +110,13 @@ export const MODEL_CATALOG: ModelCatalogEntry[] = [
   {
     label: "ChatGPT 5.6",
     gateway: "seekai",
-    model: "gpt-5-6",
+    model: "gpt-5.6",
+    sigil: "seekai",
+  },
+  {
+    label: "ChatGPT 5.6-sol",
+    gateway: "seekai",
+    model: "gpt-5.6-sol",
     sigil: "seekai",
   },
   {

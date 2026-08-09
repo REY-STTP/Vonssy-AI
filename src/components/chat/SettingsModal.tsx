@@ -358,7 +358,7 @@ export default function SettingsModal({ isOpen, onClose, user, quota }: Settings
               onKeyDown={handleNickKeyDown}
               placeholder={user.name || "Your name"}
               maxLength={15}
-              className="bg-surface-raised border border-border rounded-lg text-[13px] font-medium text-text-primary placeholder:text-text-secondary py-1.5 px-2.5 text-right min-w-[100px] max-w-[120px] w-auto focus:border-accent focus:outline-none transition-colors"
+              className="bg-surface-raised border border-border rounded-lg text-[13px] font-medium text-text-primary placeholder:text-text-secondary py-1.5 px-2.5 text-right min-w-[100px] max-w-[135px] w-auto focus:border-accent focus:outline-none transition-colors"
             />
           </div>
         </div>
@@ -403,7 +403,7 @@ export default function SettingsModal({ isOpen, onClose, user, quota }: Settings
               }}
               max={new Date().toISOString().split("T")[0]}
               min="1900-01-01"
-              className="bg-surface-raised border border-border rounded-lg text-[13px] font-medium text-text-primary py-1.5 px-2.5 min-w-[100px] max-w-[120px] w-auto focus:border-accent focus:outline-none transition-colors"
+              className="bg-surface-raised border border-border rounded-lg text-[13px] font-medium text-text-primary py-1.5 px-2.5 min-w-[100px] max-w-[135px] w-auto focus:border-accent focus:outline-none transition-colors"
             />
           </div>
         </div>

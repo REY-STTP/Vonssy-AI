@@ -14,6 +14,7 @@ interface Message {
 
 interface MessageThreadProps {
   messages: Message[];
+  truncationIndex?: number | null;
   streamingContent?: string;
   isStreaming?: boolean;
   onEditMessage?: (messageId: string, newContent: string) => void;
@@ -23,6 +24,7 @@ interface MessageThreadProps {
 
 export default function MessageThread({
   messages,
+  truncationIndex,
   streamingContent,
   isStreaming,
   onEditMessage,
@@ -35,6 +37,31 @@ export default function MessageThread({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const editTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const editMirrorRef = useRef<HTMLSpanElement>(null);
+
+  // Auto-resize edit textarea and focus at end
+  useEffect(() => {
+    const el = editTextareaRef.current;
+    const mirror = editMirrorRef.current;
+    if (el && editingId) {
+      el.style.height = "auto";
+      el.style.height = `${Math.min(el.scrollHeight, 320)}px`;
+      
+      if (mirror) {
+        mirror.textContent = editContent || " ";
+        const measuredWidth = mirror.offsetWidth + 34; // px-4 (32px) + border (2px)
+        const clamped = Math.max(80, Math.min(measuredWidth, 672));
+        el.style.width = `${clamped}px`;
+      }
+
+      if (document.activeElement !== el) {
+        el.focus();
+        const length = el.value.length;
+        el.setSelectionRange(length, length);
+      }
+    }
+  }, [editContent, editingId]);
 
   // Auto-scroll on new content
   useEffect(() => {
@@ -81,13 +108,24 @@ export default function MessageThread({
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  const formatMessageTime = (ts?: string | null) => {
+    if (!ts) return "";
+    const date = new Date(ts);
+    return date.toLocaleString([], {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
   return (
     <div
       ref={containerRef}
       onScroll={handleScroll}
       className="flex-1 overflow-y-auto relative px-4"
     >
-      <div className="max-w-3xl mx-auto w-full py-6 space-y-[1.5rem]">
+      <div className="max-w-3xl mx-auto w-full pt-16 pb-6 space-y-[1.5rem]">
         {/* Empty state */}
         {messages.length === 0 && !streamingContent && (
           <div className="flex flex-col items-center justify-center min-h-[50vh] text-center animate-fade-in">
@@ -101,15 +139,26 @@ export default function MessageThread({
         )}
 
         {/* Messages */}
-        {messages.map((msg) => (
-          <div key={msg.id} className="group flex flex-col">
-            {editingId === msg.id ? (
-              <div className="space-y-2 w-full ml-auto max-w-2xl bg-surface-raised p-4 rounded-xl">
+        {messages.map((msg, index) => {
+          if (truncationIndex !== null && truncationIndex !== undefined && index > truncationIndex) {
+            return null;
+          }
+          return (
+            <div key={msg.id} className="group flex flex-col">
+              {editingId === msg.id ? (
+              <div className="self-end max-w-[85%] w-fit flex flex-col items-end gap-2 relative">
+                <span
+                  ref={editMirrorRef}
+                  className="absolute invisible whitespace-pre text-[15px]"
+                  aria-hidden="true"
+                />
                 <textarea
+                  ref={editTextareaRef}
+                  rows={1}
                   value={editContent}
                   onChange={(e) => setEditContent(e.target.value)}
-                  className="input-base resize-none min-h-[100px] p-3 text-[15px]"
-                  autoFocus
+                  className="bg-surface-raised border border-border focus:border-accent outline-none rounded-[12px] px-4 py-3 text-[15px] text-text-primary placeholder:text-text-secondary resize-none min-h-0 max-h-[320px] overflow-y-auto leading-[1.6] transition-[color,background-color,border-color,width] duration-150 ease-out"
+                  style={{ scrollbarWidth: 'none' }}
                 />
                 <div className="flex gap-2 justify-end">
                   <button
@@ -124,21 +173,33 @@ export default function MessageThread({
                     onClick={() => submitEdit(msg.id)}
                     className="btn-primary text-xs px-3 py-1.5"
                   >
-                    Save & Regenerate
+                    Save
                   </button>
                 </div>
               </div>
             ) : msg.role === "user" ? (
               // User message styling
-              <div className="self-end max-w-[85%] bg-surface-raised text-text-primary rounded-[12px] px-4 py-3 leading-relaxed">
-                <div className="whitespace-pre-wrap text-[15px]">{msg.content}</div>
-                <div className="flex justify-end mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="self-end max-w-[85%] flex flex-col items-end">
+                <div className="bg-surface-raised text-text-primary rounded-[12px] px-4 py-3 leading-relaxed">
+                  <div className="whitespace-pre-wrap text-[15px]">{msg.content}</div>
+                </div>
+                <div className="mt-1.5 mr-1 flex items-center gap-1">
+                  {onRegenerateFrom && (
+                    <button
+                      type="button"
+                      onClick={() => onRegenerateFrom(msg.id)}
+                      className="text-text-secondary hover:text-text-primary p-1.5 rounded-md hover:bg-surface-raised transition-colors flex items-center justify-center"
+                      title="Regenerate response"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                    </button>
+                  )}
                   {onEditMessage && (
                     <button
                       type="button"
                       onClick={() => startEdit(msg)}
-                      className="text-text-secondary hover:text-text-primary p-1 rounded-md hover:bg-border transition-colors"
-                      title="Edit message"
+                      className="text-text-secondary hover:text-text-primary p-1.5 rounded-md hover:bg-surface-raised transition-colors flex items-center justify-center"
+                      title="Edit prompt"
                     >
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
@@ -146,6 +207,18 @@ export default function MessageThread({
                       </svg>
                     </button>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => copyMessage(msg.content, msg.id)}
+                    className="text-text-secondary hover:text-text-primary p-1.5 rounded-md hover:bg-surface-raised transition-colors flex items-center justify-center"
+                    title="Copy prompt"
+                  >
+                    {copiedId === msg.id ? (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    ) : (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                    )}
+                  </button>
                 </div>
               </div>
             ) : (
@@ -154,48 +227,41 @@ export default function MessageThread({
                 <MarkdownRenderer content={msg.content} />
                 
                 {/* Assistant Metadata Line & Actions */}
-                <div className="flex items-center gap-3 mt-2 text-xs font-mono text-text-secondary">
-                  {msg.provider && msg.model && (
-                    <div className="flex items-center gap-1.5 select-none">
-                      <span>◆</span>
-                      <span>{msg.provider}/{msg.model}</span>
-                    </div>
-                  )}
+                <div className="flex flex-col gap-1 mt-2">
+                  <div className="flex items-center gap-3 text-xs font-mono text-text-secondary">
+                    {msg.provider && msg.model && (
+                      <div className="flex items-center gap-1.5 select-none">
+                        <span>◆</span>
+                        <span>{msg.provider}/{msg.model}</span>
+                      </div>
+                    )}
+                    {msg.createdAt && (
+                      <span className="select-none text-[11px] opacity-80">
+                        • {formatMessageTime(msg.createdAt)}
+                      </span>
+                    )}
+                  </div>
                   
-                  <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity ml-auto">
+                  <div className="flex items-center">
                     <button
                       type="button"
                       onClick={() => copyMessage(msg.content, msg.id)}
-                      className="flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-surface-raised hover:text-text-primary transition-colors"
+                      className="text-text-secondary hover:text-text-primary p-1.5 rounded-md hover:bg-surface-raised transition-colors flex items-center justify-center -ml-1.5"
+                      title="Copy response"
                     >
                       {copiedId === msg.id ? (
-                        <>
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                          Copied
-                        </>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
                       ) : (
-                        <>
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                          Copy
-                        </>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
                       )}
                     </button>
-                    {onRegenerateFrom && (
-                      <button
-                        type="button"
-                        onClick={() => onRegenerateFrom(msg.id)}
-                        className="flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-surface-raised hover:text-text-primary transition-colors"
-                      >
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
-                        Regenerate
-                      </button>
-                    )}
                   </div>
                 </div>
               </div>
             )}
           </div>
-        ))}
+          );
+        })}
 
         {/* Streaming content */}
         {isStreaming && (

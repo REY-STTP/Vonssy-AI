@@ -5,7 +5,7 @@ import { messages as messagesTable, chatSessions, usageLogs, users, accounts } f
 import { getProvider, isValidGateway, getModelEntry } from "@/lib/ai-providers";
 import { checkRateLimit, incrementRateLimit } from "@/lib/rate-limit";
 import { computeIdentityHash, computeIpHash, getClientIp } from "@/lib/quota-hash";
-import { eq } from "drizzle-orm";
+import { eq, and, gt, asc, ne } from "drizzle-orm";
 import type { TokenUsage } from "@/lib/ai-providers/types";
 
 /**
@@ -82,6 +82,8 @@ export async function POST(request: NextRequest) {
     model: string;
     messages: Array<{ role: string; content: string }>;
     chatSessionId?: string;
+    truncatePointMessageId?: string;
+    editContent?: string;
     temperature?: number;
     maxTokens?: number;
     reasoningEffort?: "low" | "medium" | "high";
@@ -134,6 +136,8 @@ export async function POST(request: NextRequest) {
 
   // Create or use existing chat session
   let sessionId = chatSessionId;
+  let truncatePoint: Date | null = null;
+
   if (!sessionId) {
     // Auto-create a new chat session
     const firstMessage = chatMessages.find((m) => m.role === "user")?.content ?? "New Chat";
@@ -152,17 +156,39 @@ export async function POST(request: NextRequest) {
       .returning({ id: chatSessions.id });
 
     sessionId = newSession.id;
+  } else if (body.truncatePointMessageId) {
+    // Validate truncation point
+    const [existingMsg] = await db
+      .select({ createdAt: messagesTable.createdAt })
+      .from(messagesTable)
+      .where(
+        and(
+          eq(messagesTable.id, body.truncatePointMessageId),
+          eq(messagesTable.chatSessionId, sessionId)
+        )
+      )
+      .limit(1);
+
+    if (!existingMsg || !existingMsg.createdAt) {
+      return new Response(
+        JSON.stringify({ error: "Truncation point message not found" }),
+        { status: 404, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    truncatePoint = existingMsg.createdAt;
   }
 
-  // Persist the user message
+  // Persist the user message if it's not a truncation/edit
   const userMsg = chatMessages[chatMessages.length - 1];
-  await db
-    .insert(messagesTable)
-    .values({
-      chatSessionId: sessionId,
-      role: "user",
-      content: userMsg.content,
-    });
+  if (!body.truncatePointMessageId) {
+    await db
+      .insert(messagesTable)
+      .values({
+        chatSessionId: sessionId,
+        role: "user",
+        content: userMsg.content,
+      });
+  }
 
   // Update session timestamp
   await db
@@ -310,7 +336,43 @@ export async function POST(request: NextRequest) {
       // ── 5. Persist assistant message & log usage ────────
       const latencyMs = Date.now() - startTime;
 
-      if (fullContent) {
+      if (fullContent && !hasError) {
+        if (body.truncatePointMessageId && truncatePoint) {
+          // 1. Delete all messages after truncation point
+          await db.delete(messagesTable)
+            .where(
+              and(
+                eq(messagesTable.chatSessionId, sessionId!),
+                gt(messagesTable.createdAt, truncatePoint),
+                ne(messagesTable.id, body.truncatePointMessageId)
+              )
+            );
+
+          // 2. If it was an edit, update the user message content
+          if (body.editContent) {
+            await db.update(messagesTable)
+              .set({ content: body.editContent })
+              .where(eq(messagesTable.id, body.truncatePointMessageId));
+              
+            // 3. Update session title if editing the first message
+            const [firstMsg] = await db
+              .select({ id: messagesTable.id })
+              .from(messagesTable)
+              .where(eq(messagesTable.chatSessionId, sessionId!))
+              .orderBy(asc(messagesTable.createdAt))
+              .limit(1);
+              
+            if (firstMsg && firstMsg.id === body.truncatePointMessageId) {
+              const newTitle = body.editContent.length > 60 
+                ? body.editContent.substring(0, 57) + "..." 
+                : body.editContent;
+              await db.update(chatSessions)
+                .set({ title: newTitle })
+                .where(eq(chatSessions.id, sessionId!));
+            }
+          }
+        }
+
         const [savedAssistantMsg] = await db
           .insert(messagesTable)
           .values({

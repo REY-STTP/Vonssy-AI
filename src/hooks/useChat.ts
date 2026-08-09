@@ -34,6 +34,7 @@ export function useChat({
   const [messages, setMessages] = useState<Message[]>([]);
   const [streamingContent, setStreamingContent] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
+  const [truncationIndex, setTruncationIndex] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lastUsage, setLastUsage] = useState<TokenUsage | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -65,29 +66,53 @@ export function useChat({
     }
   }, []);
 
-  /**
-   * Send a message and stream the response.
-   */
+  interface SendMessageOptions {
+    truncatePointMessageId?: string;
+    editContent?: string;
+    truncateIndex?: number;
+  }
+
   const sendMessage = useCallback(
-    async (content: string) => {
+    async (content: string, options?: SendMessageOptions) => {
       setError(null);
       setStreamingContent("");
       setIsStreaming(true);
 
-      // Add user message optimistically
-      const tempUserMsg: Message = {
-        id: `temp-${Date.now()}`,
-        role: "user",
-        content,
-        createdAt: new Date().toISOString(),
-      };
-      setMessages((prev) => [...prev, tempUserMsg]);
+      if (options?.truncateIndex !== undefined) {
+        setTruncationIndex(options.truncateIndex);
+      }
 
-      // Build message history for the API
-      const apiMessages = [
-        ...messages.map((m) => ({ role: m.role, content: m.content })),
-        { role: "user" as const, content },
-      ];
+      let apiMessages: Array<{ role: string; content: string }>;
+
+      if (options?.truncateIndex !== undefined) {
+        // Truncate history for the API call
+        const history = messages.slice(0, options.truncateIndex + 1);
+        apiMessages = history.map((m) => ({ role: m.role, content: m.content }));
+        
+        // Optimistically update edited content in the UI
+        if (options.editContent) {
+          apiMessages[apiMessages.length - 1].content = options.editContent;
+          setMessages((prev) => {
+            const next = [...prev];
+            next[options.truncateIndex!] = { ...next[options.truncateIndex!], content: options.editContent! };
+            return next;
+          });
+        }
+      } else {
+        // Normal send: append user message optimistically
+        const tempUserMsg: Message = {
+          id: `temp-${Date.now()}`,
+          role: "user",
+          content,
+          createdAt: new Date().toISOString(),
+        };
+        setMessages((prev) => [...prev, tempUserMsg]);
+
+        apiMessages = [
+          ...messages.map((m) => ({ role: m.role, content: m.content })),
+          { role: "user" as const, content },
+        ];
+      }
 
       const abortController = new AbortController();
       abortControllerRef.current = abortController;
@@ -101,6 +126,8 @@ export function useChat({
             model: selectedModel.model,
             messages: apiMessages,
             chatSessionId: currentSessionIdRef.current,
+            truncatePointMessageId: options?.truncatePointMessageId,
+            editContent: options?.editContent,
           }),
           signal: abortController.signal,
         });
@@ -167,7 +194,13 @@ export function useChat({
             model: selectedModel.model,
             createdAt: new Date().toISOString(),
           };
-          setMessages((prev) => [...prev, assistantMsg]);
+          
+          setMessages((prev) => {
+            const baseMessages = options?.truncateIndex !== undefined
+              ? prev.slice(0, options.truncateIndex + 1)
+              : prev;
+            return [...baseMessages, assistantMsg];
+          });
         }
       } catch (err: unknown) {
         if (err instanceof Error && err.name === "AbortError") {
@@ -182,6 +215,7 @@ export function useChat({
       } finally {
         setStreamingContent("");
         setIsStreaming(false);
+        setTruncationIndex(null);
         abortControllerRef.current = null;
         onMessageComplete?.();
       }
@@ -196,57 +230,45 @@ export function useChat({
     abortControllerRef.current?.abort();
   }, []);
 
-  /**
-   * Edit a message and regenerate from that point.
-   */
   const editMessage = useCallback(
     async (messageId: string, newContent: string) => {
       if (!currentSessionIdRef.current) return;
 
-      // Call the API to edit and delete subsequent messages
-      await fetch(
-        `/api/sessions/${currentSessionIdRef.current}/messages`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ messageId, content: newContent }),
-        }
-      );
+      const msgIndex = messages.findIndex((m) => m.id === messageId);
+      if (msgIndex === -1) return;
 
-      // Reload messages and re-send
-      await loadMessages(currentSessionIdRef.current);
-
-      // Re-send with the edited content
-      await sendMessage(newContent);
+      await sendMessage(newContent, {
+        truncatePointMessageId: messageId,
+        editContent: newContent,
+        truncateIndex: msgIndex,
+      });
     },
-    [loadMessages, sendMessage]
+    [messages, sendMessage]
   );
 
-  /**
-   * Regenerate from a specific assistant message.
-   */
   const regenerateFrom = useCallback(
     async (messageId: string) => {
       if (!currentSessionIdRef.current) return;
 
-      // Find the user message before this assistant message
       const msgIndex = messages.findIndex((m) => m.id === messageId);
-      if (msgIndex < 1) return;
+      if (msgIndex === -1) return;
+      
+      const targetMessage = messages[msgIndex];
 
-      const userMessage = messages[msgIndex - 1];
-      if (userMessage.role !== "user") return;
+      if (targetMessage.role === "assistant") {
+        const userMessage = messages[msgIndex - 1];
+        if (!userMessage || userMessage.role !== "user") return;
 
-      // Delete the assistant message and re-send
-      await fetch(
-        `/api/sessions/${currentSessionIdRef.current}/messages?messageId=${messageId}`,
-        { method: "DELETE" }
-      );
-
-      // Remove the assistant message from state
-      setMessages((prev) => prev.slice(0, msgIndex));
-
-      // Re-send the user message
-      await sendMessage(userMessage.content);
+        await sendMessage(userMessage.content, {
+          truncatePointMessageId: userMessage.id,
+          truncateIndex: msgIndex - 1,
+        });
+      } else if (targetMessage.role === "user") {
+        await sendMessage(targetMessage.content, {
+          truncatePointMessageId: targetMessage.id,
+          truncateIndex: msgIndex,
+        });
+      }
     },
     [messages, sendMessage]
   );
@@ -263,6 +285,7 @@ export function useChat({
 
   return {
     messages,
+    truncationIndex,
     streamingContent,
     isStreaming,
     error,
