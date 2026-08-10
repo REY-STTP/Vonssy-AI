@@ -83,7 +83,7 @@ export async function checkRateLimit(
       remaining: 0,
       limit: globalLimit,
       resetAt,
-      error: `Daily message limit reached (${globalLimit} messages/day). Resets at ${resetAt}.`,
+      error: `Daily message limit reached (${globalLimit} messages/day). Resets tomorrow at midnight (UTC).`,
     };
   }
 
@@ -111,7 +111,7 @@ export async function checkRateLimit(
         remaining: 0,
         limit: specificLimit,
         resetAt,
-        error: `Rate limit reached (${specificLimit} messages/day). Resets at ${resetAt}.`,
+        error: `Rate limit reached (${specificLimit} messages/day). Resets tomorrow at midnight (UTC).`,
       };
     }
   }
@@ -137,7 +137,7 @@ export async function checkRateLimit(
       remaining: 0,
       limit: globalLimit,
       resetAt,
-      error: `Daily message limit reached. Resets at ${resetAt}.`,
+      error: `Daily message limit reached. Resets tomorrow at midnight (UTC).`,
     };
   }
 

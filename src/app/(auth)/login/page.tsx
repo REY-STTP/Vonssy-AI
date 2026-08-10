@@ -41,7 +41,7 @@ export default function LoginPage() {
           >
             <button
               type="submit"
-              className="btn-secondary w-full justify-center mb-3"
+              className="btn-secondary hover:bg-accent hover:text-accent-contrast hover:border-accent w-full justify-center mb-3"
             >
               <GoogleIcon />
               Continue with Google
@@ -56,7 +56,7 @@ export default function LoginPage() {
           >
             <button
               type="submit"
-              className="btn-secondary w-full justify-center"
+              className="btn-secondary hover:bg-accent hover:text-accent-contrast hover:border-accent w-full justify-center"
             >
               <GitHubIcon />
               Continue with GitHub

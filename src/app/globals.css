@@ -103,7 +103,7 @@
   }
 
   .btn-secondary:hover {
-    @apply border-text-secondary;
+    @apply border-text-secondary bg-border;
   }
 
   .btn-ghost {

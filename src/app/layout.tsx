@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { Toaster } from "sonner";
 import "./globals.css";
 
 const inter = Inter({
@@ -57,6 +58,15 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           {children}
+          <Toaster 
+            position="top-center" 
+            offset="64px"
+            style={{ "--width": "min(calc(100vw - 32px), 356px)" } as React.CSSProperties}
+            toastOptions={{ 
+              className: 'font-body !bg-surface border-border text-text-primary !rounded-xl shadow-soft px-4 py-3',
+            }} 
+            theme="system" 
+          />
         </ThemeProvider>
       </body>
     </html>

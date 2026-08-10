@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef } from "react";
+import { toast } from "sonner";
 import { ModelCatalogEntry } from "@/lib/ai-providers";
 
 interface Message {
@@ -35,7 +36,6 @@ export function useChat({
   const [streamingContent, setStreamingContent] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [truncationIndex, setTruncationIndex] = useState<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [lastUsage, setLastUsage] = useState<TokenUsage | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const currentSessionIdRef = useRef<string | null>(sessionId);
@@ -74,7 +74,6 @@ export function useChat({
 
   const sendMessage = useCallback(
     async (content: string, options?: SendMessageOptions) => {
-      setError(null);
       setStreamingContent("");
       setIsStreaming(true);
 
@@ -176,7 +175,7 @@ export function useChat({
               }
 
               if (parsed.type === "error") {
-                setError(parsed.error);
+                toast.error(parsed.error);
               }
             } catch {
               // Skip unparseable chunks
@@ -206,7 +205,7 @@ export function useChat({
         if (err instanceof Error && err.name === "AbortError") {
           // User stopped generation — not an error
         } else {
-          setError(
+          toast.error(
             err instanceof Error
               ? err.message
               : "An unexpected error occurred."
@@ -279,7 +278,6 @@ export function useChat({
   const clearMessages = useCallback(() => {
     setMessages([]);
     setStreamingContent("");
-    setError(null);
     setLastUsage(null);
   }, []);
 
@@ -288,7 +286,6 @@ export function useChat({
     truncationIndex,
     streamingContent,
     isStreaming,
-    error,
     lastUsage,
     sendMessage,
     stopGeneration,
