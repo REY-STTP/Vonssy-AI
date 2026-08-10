@@ -23,6 +23,9 @@ export const users = pgTable("users", {
   email: text("email").unique(),
   emailVerified: timestamp("email_verified", { withTimezone: true }),
   image: text("image"),
+  avatarSource: text("avatar_source").notNull().default("oauth"),
+  avatarStyle: text("avatar_style"),
+  avatarSeed: text("avatar_seed"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 

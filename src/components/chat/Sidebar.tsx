@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { signOut } from "next-auth/react";
 import { useLocale } from "@/hooks/useLocale";
+import UserAvatar from "@/components/UserAvatar";
 
 interface ChatSession {
   id: string;
@@ -20,7 +21,7 @@ interface SidebarProps {
   onRenameSession: (id: string, newTitle: string) => void;
   onDeleteSession: (id: string) => void;
   onTogglePin: (id: string, isPinned: boolean) => void;
-  user?: { name?: string | null; image?: string | null };
+  user?: { name?: string | null; image?: string | null; avatarSource?: string | null; avatarStyle?: string | null; avatarSeed?: string | null };
   isCollapsed: boolean;
   onToggleCollapse: () => void;
   onOpenSettings?: () => void;
@@ -242,8 +243,8 @@ export default function Sidebar({
       <div className="border-t border-border p-3 space-y-3">
         {user && (
           <div className="flex items-center gap-2">
-            {user.image ? (
-              <img src={user.image} alt="" className="w-8 h-8 rounded-full border border-border" />
+            {user.image || user.avatarSource === "generated" ? (
+              <UserAvatar user={user} size={32} />
             ) : (
               <div className="w-8 h-8 rounded-full border border-border bg-surface-raised flex items-center justify-center text-xs font-medium text-text-secondary">
                 {user.name?.[0]?.toUpperCase() || "?"}
@@ -310,8 +311,8 @@ export default function Sidebar({
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" />
             </svg>
           </button>
-          {user.image ? (
-            <img src={user.image} alt="" className="w-8 h-8 rounded-full border border-border" />
+          {user.image || user.avatarSource === "generated" ? (
+            <UserAvatar user={user} size={32} />
           ) : (
             <div className="w-8 h-8 rounded-full border border-border bg-surface-raised flex items-center justify-center text-xs font-medium text-text-secondary">
               {user.name?.[0]?.toUpperCase() || "?"}

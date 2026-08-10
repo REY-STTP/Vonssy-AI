@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { useReadingFont, type ReadingFont } from "@/hooks/useReadingFont";
 import { useLocale, type Locale } from "@/hooks/useLocale";
+import UserAvatar, { generateAvatarUri } from "@/components/UserAvatar";
 
 /* ── Types ─────────────────────────────────────────────────── */
 
@@ -20,6 +21,9 @@ interface SettingsModalProps {
     createdAt?: string | null;
     preferredName?: string | null;
     dateOfBirth?: string | null;
+    avatarSource?: string | null;
+    avatarStyle?: string | null;
+    avatarSeed?: string | null;
   };
   quota?: { remaining: number; limit: number } | null;
 }
@@ -98,6 +102,14 @@ export default function SettingsModal({ isOpen, onClose, user, quota }: Settings
   const { readingFont, setReadingFont, mounted: fontMounted } = useReadingFont();
   const { locale, setLocale, t } = useLocale();
   const [mounted, setMounted] = useState(false);
+
+  // Avatar picker state
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+  const [avatarPickerSource, setAvatarPickerSource] = useState<"oauth" | "generated">(user.avatarSource as "oauth" | "generated" ?? "oauth");
+  const [avatarPickerStyle, setAvatarPickerStyle] = useState(user.avatarStyle || "croodles-neutral");
+  const [avatarPickerSeed, setAvatarPickerSeed] = useState(user.avatarSeed || Math.random().toString(36).substring(2, 10));
+  const [isSavingAvatar, setIsSavingAvatar] = useState(false);
+  const avatarPickerRef = useRef<HTMLDivElement>(null);
 
   const NAV_ITEMS: { id: SubMenu; label: string; icon: React.ReactNode }[] = [
     { id: "profile", label: t("settings.profile"), icon: NAV_ICONS.profile },
@@ -308,13 +320,150 @@ export default function SettingsModal({ isOpen, onClose, user, quota }: Settings
     <div className="space-y-4">
       {/* Identity block */}
       <div className="flex items-center gap-4">
-        {user.image ? (
-          <img src={user.image} alt="" className="w-12 h-12 rounded-full border border-border shrink-0" />
-        ) : (
-          <div className="w-12 h-12 rounded-full border border-border bg-surface-raised flex items-center justify-center text-base font-semibold text-text-secondary shrink-0">
-            {user.name?.[0]?.toUpperCase() || "?"}
-          </div>
-        )}
+        <div className="relative">
+          <UserAvatar user={user} size={48} />
+          <button
+            type="button"
+            onClick={() => {
+              setAvatarPickerSource(user.avatarSource as "oauth" | "generated" ?? "oauth");
+              setAvatarPickerStyle(user.avatarStyle || "croodles-neutral");
+              setAvatarPickerSeed(user.avatarSeed || Math.random().toString(36).substring(2, 10));
+              setShowAvatarPicker(!showAvatarPicker);
+            }}
+            className="absolute inset-0 rounded-full bg-black/0 hover:bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity cursor-pointer"
+            title={t("avatar.changeAvatar")}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+            </svg>
+          </button>
+
+          {/* Avatar Picker Popover */}
+          {showAvatarPicker && (
+            <div
+              ref={avatarPickerRef}
+              className="absolute top-14 left-0 z-50 bg-surface border border-border rounded-xl shadow-lg p-4 w-[280px] space-y-4 animate-fade-in"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Preview */}
+              <div className="flex justify-center">
+                {avatarPickerSource === "generated" ? (
+                  <img
+                    src={generateAvatarUri(avatarPickerStyle, avatarPickerSeed, 72) || ""}
+                    alt=""
+                    className="w-[72px] h-[72px] rounded-full border border-border bg-surface-raised"
+                  />
+                ) : (
+                  <UserAvatar user={{ ...user, avatarSource: "oauth" }} size={72} />
+                )}
+              </div>
+
+              {/* Option 1: Use profile photo */}
+              <button
+                type="button"
+                onClick={() => setAvatarPickerSource("oauth")}
+                className={`w-full flex items-center gap-3 p-2.5 rounded-lg border transition-colors text-[13px] font-medium ${
+                  avatarPickerSource === "oauth"
+                    ? "border-accent bg-accent/5 text-accent"
+                    : "border-border text-text-secondary hover:text-text-primary hover:bg-surface-raised"
+                }`}
+              >
+                {user.image ? (
+                  <img src={user.image} alt="" className="w-7 h-7 rounded-full border border-border shrink-0" />
+                ) : (
+                  <div className="w-7 h-7 rounded-full border border-border bg-surface-raised flex items-center justify-center text-[10px] font-semibold text-text-secondary shrink-0">
+                    {user.name?.[0]?.toUpperCase() || "?"}
+                  </div>
+                )}
+                {t("avatar.useProfilePhoto")}
+              </button>
+
+              {/* Option 2: Generated avatar */}
+              <div className={`space-y-3 transition-opacity ${avatarPickerSource === "oauth" ? "opacity-40" : ""}`}>
+                <div className="text-[12px] font-semibold text-text-secondary uppercase tracking-wider">{t("avatar.generatedAvatar")}</div>
+
+                {/* Style selector — segmented control */}
+                <div className="flex gap-1 bg-surface-raised rounded-lg p-0.5">
+                  {([
+                    { value: "croodles-neutral", label: t("avatar.styleCroodles") },
+                    { value: "lorelei-neutral", label: t("avatar.styleLorelei") },
+                    { value: "notionists-neutral", label: t("avatar.styleNotionists") },
+                  ] as const).map((s) => (
+                    <button
+                      key={s.value}
+                      type="button"
+                      onClick={() => {
+                        setAvatarPickerSource("generated");
+                        setAvatarPickerStyle(s.value);
+                      }}
+                      className={`flex-1 py-1.5 text-[11px] font-medium rounded-md transition-colors ${
+                        avatarPickerStyle === s.value && avatarPickerSource === "generated"
+                          ? "bg-surface text-text-primary shadow-sm"
+                          : "text-text-secondary hover:text-text-primary"
+                      }`}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Shuffle button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAvatarPickerSource("generated");
+                    setAvatarPickerSeed(Math.random().toString(36).substring(2, 10));
+                  }}
+                  className="w-full flex items-center justify-center gap-2 py-2 text-[13px] font-medium text-text-secondary hover:text-text-primary hover:bg-surface-raised rounded-lg border border-border transition-colors"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="2" y="2" width="8" height="8" rx="1" /><rect x="14" y="14" width="8" height="8" rx="1" />
+                    <circle cx="6" cy="6" r="1" /><circle cx="18" cy="18" r="1" />
+                  </svg>
+                  {t("avatar.shuffle")}
+                </button>
+              </div>
+
+              {/* Save / Cancel */}
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowAvatarPicker(false)}
+                  className="flex-1 py-1.5 text-[13px] font-medium text-text-secondary hover:text-text-primary rounded-lg border border-border hover:bg-surface-raised transition-colors"
+                >
+                  {t("avatar.cancel")}
+                </button>
+                <button
+                  type="button"
+                  disabled={isSavingAvatar}
+                  onClick={async () => {
+                    setIsSavingAvatar(true);
+                    try {
+                      const payload = avatarPickerSource === "oauth"
+                        ? { source: "oauth" }
+                        : { source: "generated", style: avatarPickerStyle, seed: avatarPickerSeed };
+                      const res = await fetch("/api/user/avatar", {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(payload),
+                      });
+                      if (res.ok) {
+                        router.refresh();
+                        setShowAvatarPicker(false);
+                      }
+                    } finally {
+                      setIsSavingAvatar(false);
+                    }
+                  }}
+                  className="flex-1 py-1.5 text-[13px] font-medium bg-accent text-accent-contrast rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
+                >
+                  {isSavingAvatar ? "..." : t("avatar.save")}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
         <div className="text-base font-semibold text-text-primary truncate">{user.name || "User"}</div>
       </div>
 

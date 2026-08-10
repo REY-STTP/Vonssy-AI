@@ -15,11 +15,14 @@ export default async function ChatPage() {
     redirect("/login");
   }
 
-  // Fetch OAuth provider, preferred name, and user creation date
+  // Fetch OAuth provider, preferred name, user creation date, and avatar settings
   let provider: string | null = null;
   let createdAt: string | null = null;
   let preferredName: string | null = null;
   let dateOfBirth: string | null = null;
+  let avatarSource: string = "oauth";
+  let avatarStyle: string | null = null;
+  let avatarSeed: string | null = null;
 
   if (session.user.id) {
     const [account] = await db
@@ -36,6 +39,9 @@ export default async function ChatPage() {
         createdAt: users.createdAt,
         preferredName: users.preferredName,
         dateOfBirth: users.dateOfBirth,
+        avatarSource: users.avatarSource,
+        avatarStyle: users.avatarStyle,
+        avatarSeed: users.avatarSeed,
       })
       .from(users)
       .where(eq(users.id, session.user.id))
@@ -49,6 +55,11 @@ export default async function ChatPage() {
     if (userData?.dateOfBirth) {
       dateOfBirth = userData.dateOfBirth;
     }
+    if (userData?.avatarSource) {
+      avatarSource = userData.avatarSource;
+    }
+    avatarStyle = userData?.avatarStyle ?? null;
+    avatarSeed = userData?.avatarSeed ?? null;
   }
 
   return (
@@ -61,6 +72,9 @@ export default async function ChatPage() {
         createdAt,
         preferredName,
         dateOfBirth,
+        avatarSource,
+        avatarStyle,
+        avatarSeed,
       }}
     />
   );

@@ -21,6 +21,9 @@ interface ChatClientProps {
     createdAt?: string | null;
     preferredName?: string | null;
     dateOfBirth?: string | null;
+    avatarSource?: string | null;
+    avatarStyle?: string | null;
+    avatarSeed?: string | null;
   };
 }
 

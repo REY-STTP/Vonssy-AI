@@ -54,13 +54,24 @@ const en = {
   "profile.memberSince": "Member since",
   "profile.signOut": "Sign Out",
 
+  // Avatar Picker
+  "avatar.changeAvatar": "Change avatar",
+  "avatar.useProfilePhoto": "Use profile photo",
+  "avatar.generatedAvatar": "Generated avatar",
+  "avatar.shuffle": "Shuffle",
+  "avatar.save": "Save",
+  "avatar.cancel": "Cancel",
+  "avatar.styleCroodles": "Croodles",
+  "avatar.styleLorelei": "Lorelei",
+  "avatar.styleNotionists": "Notionists",
+
   // Settings — Appearance
   "appearance.theme": "Theme",
   "appearance.light": "Light",
   "appearance.dark": "Dark",
   "appearance.system": "System",
   "appearance.themeHelper": "System matches your device settings automatically.",
-  "appearance.messageFont": "Message font",
+  "appearance.messageFont": "Font",
   "appearance.fontDefault": "Default (Inter)",
   "appearance.fontSerif": "Serif (Source Serif 4)",
   "appearance.fontMono": "Mono (JetBrains Mono)",

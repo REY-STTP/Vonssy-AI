@@ -56,13 +56,24 @@ const id: Record<LocaleKeys, string> = {
   "profile.memberSince": "Anggota sejak",
   "profile.signOut": "Keluar",
 
+  // Avatar Picker
+  "avatar.changeAvatar": "Ubah avatar",
+  "avatar.useProfilePhoto": "Gunakan foto profil",
+  "avatar.generatedAvatar": "Avatar buatan",
+  "avatar.shuffle": "Acak",
+  "avatar.save": "Simpan",
+  "avatar.cancel": "Batal",
+  "avatar.styleCroodles": "Croodles",
+  "avatar.styleLorelei": "Lorelei",
+  "avatar.styleNotionists": "Notionists",
+
   // Settings — Appearance
   "appearance.theme": "Tema",
   "appearance.light": "Terang",
   "appearance.dark": "Gelap",
   "appearance.system": "Sistem",
   "appearance.themeHelper": "Sistem otomatis mengikuti pengaturan perangkat Anda.",
-  "appearance.messageFont": "Huruf pesan",
+  "appearance.messageFont": "Fonta",
   "appearance.fontDefault": "Default (Inter)",
   "appearance.fontSerif": "Serif (Source Serif 4)",
   "appearance.fontMono": "Mono (JetBrains Mono)",
