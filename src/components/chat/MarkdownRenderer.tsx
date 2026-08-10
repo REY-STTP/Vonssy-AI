@@ -4,6 +4,7 @@ import React, { useMemo, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { useLocale } from "@/hooks/useLocale";
 
 /**
  * Custom dark theme matching the Vonssy palette.
@@ -59,6 +60,7 @@ const vonssyTheme: Record<string, React.CSSProperties> = {
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = React.useState(false);
+  const { t } = useLocale();
 
   const handleCopy = useCallback(async () => {
     await navigator.clipboard.writeText(text);
@@ -71,9 +73,9 @@ function CopyButton({ text }: { text: string }) {
       type="button"
       onClick={handleCopy}
       className="code-block-copy"
-      aria-label={copied ? "Copied" : "Copy code"}
+      aria-label={copied ? t("code.copiedLabel") : t("code.copyLabel")}
     >
-      {copied ? "Copied!" : "Copy"}
+      {copied ? t("code.copied") : t("code.copy")}
     </button>
   );
 }

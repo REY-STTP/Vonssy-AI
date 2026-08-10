@@ -2,8 +2,10 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { signOut } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { useReadingFont, type ReadingFont } from "@/hooks/useReadingFont";
+import { useLocale, type Locale } from "@/hooks/useLocale";
 
 /* ── Types ─────────────────────────────────────────────────── */
 
@@ -26,35 +28,23 @@ type SubMenu = "profile" | "appearance" | "data";
 
 /* ── Sub-menu nav items ────────────────────────────────────── */
 
-const NAV_ITEMS: { id: SubMenu; label: string; icon: React.ReactNode }[] = [
-  {
-    id: "profile",
-    label: "Profile",
-    icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
-      </svg>
-    ),
-  },
-  {
-    id: "appearance",
-    label: "Appearance",
-    icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="5" /><line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" /><line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" /><line x1="1" y1="12" x2="3" y2="12" /><line x1="21" y1="12" x2="23" y2="12" /><line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-      </svg>
-    ),
-  },
-  {
-    id: "data",
-    label: "Data & Usage",
-    icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" />
-      </svg>
-    ),
-  },
-];
+const NAV_ICONS: Record<SubMenu, React.ReactNode> = {
+  profile: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
+    </svg>
+  ),
+  appearance: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="5" /><line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" /><line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" /><line x1="1" y1="12" x2="3" y2="12" /><line x1="21" y1="12" x2="23" y2="12" /><line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+    </svg>
+  ),
+  data: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" />
+    </svg>
+  ),
+};
 
 /* ── Provider Icons (small 12px marks) ─────────────────────── */
 
@@ -82,6 +72,7 @@ function ProviderIcon({ provider }: { provider: string }) {
 /* ── Main Component ────────────────────────────────────────── */
 
 export default function SettingsModal({ isOpen, onClose, user, quota }: SettingsModalProps) {
+  const router = useRouter();
   const [activeMenu, setActiveMenu] = useState<SubMenu>("profile");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -105,7 +96,14 @@ export default function SettingsModal({ isOpen, onClose, user, quota }: Settings
 
   const { theme, setTheme } = useTheme();
   const { readingFont, setReadingFont, mounted: fontMounted } = useReadingFont();
+  const { locale, setLocale, t } = useLocale();
   const [mounted, setMounted] = useState(false);
+
+  const NAV_ITEMS: { id: SubMenu; label: string; icon: React.ReactNode }[] = [
+    { id: "profile", label: t("settings.profile"), icon: NAV_ICONS.profile },
+    { id: "appearance", label: t("settings.appearance"), icon: NAV_ICONS.appearance },
+    { id: "data", label: t("settings.dataUsage"), icon: NAV_ICONS.data },
+  ];
 
   useEffect(() => {
     setMounted(true);
@@ -245,6 +243,7 @@ export default function SettingsModal({ isOpen, onClose, user, quota }: Settings
       setNickValue(saved);
       setNickPersisted(saved);
       setNickStatus("saved");
+      router.refresh();
       savedTimerRef.current = setTimeout(() => setNickStatus("idle"), 1500);
     } catch (err) {
       // Revert to last known-good value
@@ -288,6 +287,7 @@ export default function SettingsModal({ isOpen, onClose, user, quota }: Settings
       setDobValue(saved);
       setDobPersisted(saved);
       setDobStatus("saved");
+      router.refresh();
       dobTimerRef.current = setTimeout(() => setDobStatus("idle"), 1500);
     } catch (err) {
       setDobValue(dobPersisted);
@@ -318,24 +318,21 @@ export default function SettingsModal({ isOpen, onClose, user, quota }: Settings
         <div className="text-base font-semibold text-text-primary truncate">{user.name || "User"}</div>
       </div>
 
-      {/* Divider */}
       <div className="border-t border-border" />
 
       {/* Name */}
       <div className="flex items-center justify-between text-[13px]">
-        <span className="text-text-secondary">Name</span>
+        <span className="text-text-secondary">{t("profile.name")}</span>
         <span className="text-text-primary font-medium truncate ml-4">{user.name || "—"}</span>
       </div>
 
-      {/* Divider */}
       <div className="border-t border-border" />
 
       {/* Preferred name (editable) */}
       <div>
         <div className="flex items-center justify-between text-[13px]">
-          <span className="text-text-secondary">Preferred name</span>
+          <span className="text-text-secondary">{t("profile.preferredName")}</span>
           <div className="flex items-center gap-2">
-            {/* Save status indicator */}
             {nickStatus === "saving" && (
               <svg className="animate-spin text-text-secondary" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M21 12a9 9 0 1 1-6.219-8.56" />
@@ -358,9 +355,9 @@ export default function SettingsModal({ isOpen, onClose, user, quota }: Settings
               }}
               onBlur={savePreferredName}
               onKeyDown={handleNickKeyDown}
-              placeholder={user.name || "Your name"}
-              maxLength={15}
-              className="bg-surface-raised border border-border rounded-lg text-[13px] font-medium text-text-primary placeholder:text-text-secondary py-1.5 px-2.5 text-right min-w-[100px] max-w-[135px] w-auto focus:border-accent focus:outline-none transition-colors"
+              placeholder={user.name || t("profile.preferredNamePlaceholder")}
+              maxLength={12}
+              className="bg-surface-raised border border-border rounded-lg text-[13px] font-medium text-text-primary placeholder:text-text-secondary py-1.5 px-2.5 text-right min-w-[150px] max-w-[150px] w-auto focus:border-accent focus:outline-none transition-colors"
             />
           </div>
         </div>
@@ -369,13 +366,12 @@ export default function SettingsModal({ isOpen, onClose, user, quota }: Settings
         )}
       </div>
 
-      {/* Divider */}
       <div className="border-t border-border" />
 
       {/* Date of birth */}
       <div>
         <div className="flex items-center justify-between text-[13px]">
-          <span className="text-text-secondary">Date of birth</span>
+          <span className="text-text-secondary">{t("profile.dateOfBirth")}</span>
           <div className="flex items-center gap-2">
             {dobStatus === "saving" && (
               <svg className="animate-spin text-text-secondary" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -405,7 +401,7 @@ export default function SettingsModal({ isOpen, onClose, user, quota }: Settings
               }}
               max={new Date().toISOString().split("T")[0]}
               min="1900-01-01"
-              className="bg-surface-raised border border-border rounded-lg text-[13px] font-medium text-text-primary py-1.5 px-2.5 min-w-[100px] max-w-[135px] w-auto focus:border-accent focus:outline-none transition-colors"
+              className="bg-surface-raised border border-border rounded-lg text-[13px] font-medium text-text-primary py-1.5 px-2.5 text-right min-w-[150px] max-w-[150px] w-auto focus:border-accent focus:outline-none transition-colors"
             />
           </div>
         </div>
@@ -414,45 +410,40 @@ export default function SettingsModal({ isOpen, onClose, user, quota }: Settings
         )}
       </div>
 
-      {/* Divider */}
       <div className="border-t border-border" />
 
       {/* Email */}
       <div className="flex items-center justify-between text-[13px]">
-        <span className="text-text-secondary">Email</span>
+        <span className="text-text-secondary">{t("profile.email")}</span>
         <span className="text-text-primary font-medium truncate ml-4">{user.email || "—"}</span>
       </div>
 
-      {/* Divider */}
       <div className="border-t border-border" />
 
       {/* Provider */}
       {user.provider && (
         <>
           <div className="flex items-center justify-between text-[13px]">
-            <span className="text-text-secondary">Signed in with</span>
+            <span className="text-text-secondary">{t("profile.signedInWith")}</span>
             <div className="flex items-center gap-1.5 text-text-primary font-medium">
               <ProviderIcon provider={user.provider} />
               <span>{user.provider.charAt(0).toUpperCase() + user.provider.slice(1)}</span>
             </div>
           </div>
-          
-          {/* Divider */}
           <div className="border-t border-border" />
         </>
       )}
 
       {/* Member since */}
       <div className="flex items-center justify-between text-[13px]">
-        <span className="text-text-secondary">Member since</span>
+        <span className="text-text-secondary">{t("profile.memberSince")}</span>
         <span className="text-text-primary font-medium">
           {user.createdAt
-            ? new Date(user.createdAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+            ? new Date(user.createdAt).toLocaleDateString(locale === "id" ? "id-ID" : "en-US", { month: "long", day: "numeric", year: "numeric" })
             : "Unknown"}
         </span>
       </div>
 
-      {/* Divider */}
       <div className="border-t border-border" />
 
       {/* Sign out */}
@@ -464,7 +455,7 @@ export default function SettingsModal({ isOpen, onClose, user, quota }: Settings
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" />
         </svg>
-        Sign Out
+        {t("profile.signOut")}
       </button>
     </div>
   );
@@ -506,11 +497,10 @@ export default function SettingsModal({ isOpen, onClose, user, quota }: Settings
 
   const appearanceContent = (
     <div className="space-y-4">
-      <div className="text-[13px] font-semibold text-text-primary">Theme</div>
+      <div className="text-[13px] font-semibold text-text-primary">{t("appearance.theme")}</div>
 
-      {/* Segmented Control */}
+      {/* Theme Segmented Control */}
       <div className="relative flex bg-surface-raised rounded-[10px] p-1">
-        {/* Sliding pill */}
         {mounted && (
           <div
             className="absolute top-1 bottom-1 rounded-[8px] bg-surface border border-border shadow-soft transition-all duration-150 ease-out"
@@ -537,56 +527,43 @@ export default function SettingsModal({ isOpen, onClose, user, quota }: Settings
       </div>
 
       <p className="text-[12px] text-text-secondary">
-        System matches your device settings automatically.
+        {t("appearance.themeHelper")}
       </p>
 
-      {/* ── Message Font ──────────────────────────── */}
+      {/* ── Message Font (Dropdown) ──────────────── */}
       <div className="border-t border-border" />
 
-      <div className="text-[13px] font-semibold text-text-primary">Message Font</div>
-
-      {/* Font Segmented Control */}
-      <div className="relative flex bg-surface-raised rounded-[10px] p-1">
-        {/* Sliding pill */}
-        {fontMounted && (() => {
-          const fontOptions: { id: ReadingFont; label: string }[] = [
-            { id: "default", label: "Default" },
-            { id: "serif", label: "Serif" },
-            { id: "mono", label: "Mono" },
-          ];
-          const activeFontIndex = fontOptions.findIndex((f) => f.id === readingFont);
-          return (
-            <div
-              className="absolute top-1 bottom-1 rounded-[8px] bg-surface border border-border shadow-soft transition-all duration-150 ease-out"
-              style={{
-                width: `calc(${100 / 3}% - 2px)`,
-                left: `calc(${(activeFontIndex * 100) / 3}% + 1px)`,
-              }}
-            />
-          );
-        })()}
-
-        {[
-          { id: "default" as ReadingFont, label: "Default", fontClass: "font-body" },
-          { id: "serif" as ReadingFont, label: "Serif", fontClass: "font-[family-name:var(--font-source-serif)]" },
-          { id: "mono" as ReadingFont, label: "Mono", fontClass: "font-mono" },
-        ].map((opt) => (
-          <button
-            key={opt.id}
-            type="button"
-            onClick={() => setReadingFont(opt.id)}
-            className={`relative z-10 flex-1 flex items-center justify-center py-2 rounded-[8px] text-[13px] font-medium transition-colors ${opt.fontClass} ${
-              readingFont === opt.id ? "text-text-primary" : "text-text-secondary hover:text-text-primary"
-            }`}
-          >
-            {opt.label}
-          </button>
-        ))}
+      <div className="flex items-center justify-between">
+        <div className="text-[13px] font-semibold text-text-primary">{t("appearance.messageFont")}</div>
+        <select
+          value={readingFont}
+          onChange={(e) => setReadingFont(e.target.value as ReadingFont)}
+          className="bg-surface-raised border border-border rounded-lg text-[13px] font-medium text-text-primary py-1.5 px-2.5 pr-8 focus:border-accent focus:outline-none transition-colors appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2216%22%20fill%3D%22none%22%20stroke%3D%22%239C978E%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%224%206%208%2010%2012%206%22%2F%3E%3C%2Fsvg%3E')] bg-[length:16px] bg-[right_6px_center] bg-no-repeat"
+        >
+          <option value="default">{t("appearance.fontDefault")}</option>
+          <option value="serif">{t("appearance.fontSerif")}</option>
+          <option value="mono">{t("appearance.fontMono")}</option>
+        </select>
       </div>
 
       <p className="text-[12px] text-text-secondary">
-        Changes how your messages are displayed. Code blocks always use a fixed-width font.
+        {t("appearance.fontHelper")}
       </p>
+
+      {/* ── Language (Dropdown) ──────────────────── */}
+      <div className="border-t border-border" />
+
+      <div className="flex items-center justify-between">
+        <div className="text-[13px] font-semibold text-text-primary">{t("appearance.language")}</div>
+        <select
+          value={locale}
+          onChange={(e) => setLocale(e.target.value as Locale)}
+          className="bg-surface-raised border border-border rounded-lg text-[13px] font-medium text-text-primary py-1.5 px-2.5 pr-8 focus:border-accent focus:outline-none transition-colors appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2216%22%20fill%3D%22none%22%20stroke%3D%22%239C978E%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%224%206%208%2010%2012%206%22%2F%3E%3C%2Fsvg%3E')] bg-[length:16px] bg-[right_6px_center] bg-no-repeat"
+        >
+          <option value="en">{t("appearance.langEn")}</option>
+          <option value="id">{t("appearance.langId")}</option>
+        </select>
+      </div>
     </div>
   );
 
@@ -594,11 +571,11 @@ export default function SettingsModal({ isOpen, onClose, user, quota }: Settings
   const dataContent = (
     <div className="space-y-4">
       {/* Usage today */}
-      <div className="text-[13px] font-semibold text-text-primary">Usage today</div>
+      <div className="text-[13px] font-semibold text-text-primary">{t("data.usageToday")}</div>
 
       <div className="bg-surface-raised rounded-xl p-4 space-y-3">
         <div className="text-xl font-semibold text-text-primary">
-          {used} <span className="text-text-secondary font-normal text-base">/ {limit} messages</span>
+          {used} <span className="text-text-secondary font-normal text-base">/ {limit} {t("data.messages")}</span>
         </div>
         <div className="w-full h-1.5 bg-border rounded-full overflow-hidden">
           <div
@@ -606,20 +583,18 @@ export default function SettingsModal({ isOpen, onClose, user, quota }: Settings
             style={{ width: `${progressPct}%` }}
           />
         </div>
-        <div className="text-[12px] text-text-secondary">Resets at 00:00 UTC.</div>
+        <div className="text-[12px] text-text-secondary">{t("data.resetsAt")}</div>
       </div>
 
-      {/* Divider */}
       <div className="border-t border-border" />
 
-      {/* Your data */}
-      <div className="text-[13px] font-semibold text-text-primary">Your data</div>
+      <div className="text-[13px] font-semibold text-text-primary">{t("data.yourData")}</div>
 
       {/* Export */}
       <div className="flex items-center justify-between gap-4 py-2">
         <div className="min-w-0">
-          <div className="text-sm font-medium text-text-primary">Export chat history</div>
-          <div className="text-[12px] text-text-secondary mt-0.5">Download all your conversations as a file</div>
+          <div className="text-sm font-medium text-text-primary">{t("data.exportTitle")}</div>
+          <div className="text-[12px] text-text-secondary mt-0.5">{t("data.exportDesc")}</div>
         </div>
         <button
           type="button"
@@ -627,22 +602,22 @@ export default function SettingsModal({ isOpen, onClose, user, quota }: Settings
           disabled={isExporting}
           className="btn-secondary text-sm px-4 py-1.5 shrink-0"
         >
-          {isExporting ? "Exporting…" : "Export"}
+          {isExporting ? t("data.exporting") : t("data.export")}
         </button>
       </div>
 
       {/* Delete account */}
       <div className="flex items-center justify-between gap-4 py-2">
         <div className="min-w-0">
-          <div className="text-sm font-medium text-danger">Delete account</div>
-          <div className="text-[12px] text-text-secondary mt-0.5">Permanently delete your account and all data</div>
+          <div className="text-sm font-medium text-danger">{t("data.deleteAccountTitle")}</div>
+          <div className="text-[12px] text-text-secondary mt-0.5">{t("data.deleteAccountDesc")}</div>
         </div>
         <button
           type="button"
           onClick={() => setShowDeleteConfirm(true)}
           className="btn-danger text-sm px-4 py-1.5 shrink-0"
         >
-          Delete Account
+          {t("data.deleteAccount")}
         </button>
       </div>
     </div>
@@ -673,7 +648,7 @@ export default function SettingsModal({ isOpen, onClose, user, quota }: Settings
           ref={modalRef}
           role="dialog"
           aria-modal="true"
-          aria-label="Settings"
+          aria-label={t("settings.title")}
           tabIndex={-1}
           className="bg-surface border-t md:border border-border rounded-t-2xl md:rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.16)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.5)] w-full md:max-w-[880px] h-[85vh] md:h-[min(640px,85vh)] flex flex-col md:flex-row overflow-hidden animate-modal-enter focus:outline-none"
           onClick={(e) => e.stopPropagation()}
@@ -682,12 +657,12 @@ export default function SettingsModal({ isOpen, onClose, user, quota }: Settings
           <div className="md:hidden flex flex-col bg-surface-raised border-b border-border shrink-0">
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3">
-              <span className="text-sm font-semibold text-text-primary">Settings</span>
+              <span className="text-sm font-semibold text-text-primary">{t("settings.title")}</span>
               <button
                 type="button"
                 onClick={onClose}
                 className="p-1 text-text-secondary hover:text-text-primary hover:bg-surface rounded-md transition-colors"
-                aria-label="Close settings"
+                aria-label={t("settings.close")}
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
@@ -718,12 +693,12 @@ export default function SettingsModal({ isOpen, onClose, user, quota }: Settings
           <div className="hidden md:flex md:w-[220px] shrink-0 bg-surface-raised border-r border-border flex-col">
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-5">
-              <span className="text-base font-semibold text-text-primary">Settings</span>
+              <span className="text-base font-semibold text-text-primary">{t("settings.title")}</span>
               <button
                 type="button"
                 onClick={onClose}
                 className="p-1.5 -mr-1.5 text-text-secondary hover:text-text-primary hover:bg-surface rounded-md transition-colors"
-                aria-label="Close settings"
+                aria-label={t("settings.close")}
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
@@ -768,7 +743,7 @@ export default function SettingsModal({ isOpen, onClose, user, quota }: Settings
             <div
               role="alertdialog"
               aria-modal="true"
-              aria-label="Confirm account deletion"
+              aria-label={t("settings.confirmDelete")}
               className="bg-surface border border-border rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.24)] w-full max-w-[400px] p-6 space-y-4 animate-modal-enter"
               onClick={(e) => e.stopPropagation()}
             >
@@ -777,11 +752,11 @@ export default function SettingsModal({ isOpen, onClose, user, quota }: Settings
                   <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
                   <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
                 </svg>
-                <span className="text-base font-semibold">Delete Account</span>
+                <span className="text-base font-semibold">{t("data.deleteConfirmTitle")}</span>
               </div>
 
               <p className="text-sm text-text-secondary leading-relaxed">
-                This permanently deletes your account and all chat history. This cannot be undone.
+                {t("data.deleteConfirmDesc")}
               </p>
 
               <div className="flex gap-3 justify-end pt-2">
@@ -791,7 +766,7 @@ export default function SettingsModal({ isOpen, onClose, user, quota }: Settings
                   className="btn-ghost text-sm px-4 py-2"
                   disabled={isDeleting}
                 >
-                  Cancel
+                  {t("message.cancel")}
                 </button>
                 <button
                   type="button"
@@ -799,7 +774,7 @@ export default function SettingsModal({ isOpen, onClose, user, quota }: Settings
                   disabled={isDeleting}
                   className="btn-danger text-sm px-4 py-2"
                 >
-                  {isDeleting ? "Deleting…" : "Delete My Account"}
+                  {isDeleting ? t("data.deleting") : t("data.deleteConfirmBtn")}
                 </button>
               </div>
             </div>

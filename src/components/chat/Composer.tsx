@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, KeyboardEvent } from "react";
 import ModelDropdown from "./ModelDropdown";
 import { ModelCatalogEntry } from "@/lib/ai-providers";
+import { useLocale } from "@/hooks/useLocale";
 
 interface ComposerProps {
   selectedModel: ModelCatalogEntry;
@@ -25,6 +26,7 @@ export default function Composer({
 }: ComposerProps) {
   const [content, setContent] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { t } = useLocale();
 
   useEffect(() => {
     const el = textareaRef.current;
@@ -71,12 +73,12 @@ export default function Composer({
               value={content}
               onChange={(e) => setContent(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Send a message..."
+              placeholder={t("composer.placeholder")}
               disabled={disabled || isStreaming}
               rows={1}
               className="w-full bg-transparent text-text-primary placeholder:text-text-secondary text-[15px] resize-none focus:outline-none min-h-[32px] max-h-[200px] leading-relaxed py-[4px] overflow-y-auto"
               style={{ scrollbarWidth: 'none' }}
-              aria-label="Message input"
+              aria-label={t("composer.inputLabel")}
             />
           </div>
 
@@ -86,7 +88,7 @@ export default function Composer({
                 type="button"
                 onClick={onStop}
                 className="flex items-center justify-center w-8 h-8 rounded-full bg-danger text-accent-contrast transition-opacity hover:opacity-90"
-                aria-label="Stop generating"
+                aria-label={t("composer.stopLabel")}
               >
                 <StopIcon />
               </button>
@@ -98,7 +100,7 @@ export default function Composer({
                 className={`flex items-center justify-center w-8 h-8 rounded-full bg-accent text-accent-contrast transition-opacity ${
                   !content.trim() || disabled ? "opacity-50 cursor-not-allowed" : "hover:opacity-90 cursor-pointer"
                 }`}
-                aria-label="Send message"
+                aria-label={t("composer.sendLabel")}
               >
                 <SendIcon />
               </button>
@@ -110,7 +112,7 @@ export default function Composer({
         {quota && (
           <div className="px-1 text-center">
             <p className="text-[12px] font-body text-text-secondary">
-              {quota.limit - quota.remaining} / {quota.limit} messages today
+              {quota.limit - quota.remaining} / {quota.limit} {t("composer.messagesToday")}
             </p>
             <div className="mt-1.5 mx-auto w-32 h-1 bg-surface-raised rounded-full overflow-hidden">
               <div 

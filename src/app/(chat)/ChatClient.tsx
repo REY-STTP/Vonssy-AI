@@ -10,6 +10,7 @@ import { useChat } from "@/hooks/useChat";
 import { useSessions } from "@/hooks/useSessions";
 import { useRateLimit } from "@/hooks/useRateLimit";
 import { getDefaultModel, ModelCatalogEntry } from "@/lib/ai-providers";
+import { useLocale } from "@/hooks/useLocale";
 
 interface ChatClientProps {
   user: {
@@ -34,6 +35,7 @@ export default function ChatClient({ user }: ChatClientProps) {
   );
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const { t } = useLocale();
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -165,11 +167,11 @@ export default function ChatClient({ user }: ChatClientProps) {
               <div className="flex flex-col items-center text-center mb-8 animate-fade-in">
                 <h2 className="font-body font-medium text-2xl text-text-primary mb-2">
                   {(user.preferredName || user.name)
-                    ? `Hi ${user.preferredName || user.name}, how can I help you today?`
-                    : "How can I help you today?"}
+                    ? t("welcome.greeting", { name: (user.preferredName || user.name) as string })
+                    : t("welcome.greetingAnon")}
                 </h2>
                 <p className="text-text-secondary text-base font-body max-w-md mt-2">
-                  Select a model using the sigils below, then type your message.
+                  {t("welcome.subtitle")}
                 </p>
               </div>
               <div className="w-full max-w-2xl">

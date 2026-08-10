@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { NotFoundTitle, NotFoundDescription, NotFoundGoHome } from "./NotFoundText";
 
 export default function NotFound() {
   return (
@@ -27,10 +28,10 @@ export default function NotFound() {
             404
           </h1>
           <h2 className="font-body text-xl font-medium text-text-primary mb-3">
-            Page Not Found
+            <NotFoundTitle />
           </h2>
           <p className="font-body text-[15px] text-text-secondary max-w-[280px] mx-auto leading-relaxed">
-            The page you are looking for doesn't exist or has been moved.
+            <NotFoundDescription />
           </p>
         </div>
 
@@ -40,7 +41,7 @@ export default function NotFound() {
             href="/"
             className="btn-primary inline-flex items-center justify-center px-6"
           >
-            Return to Chat
+            <NotFoundGoHome />
           </Link>
         </div>
       </div>

@@ -1,8 +1,12 @@
 import { signIn } from "@/lib/auth";
+import { LoginTagline, LoginGoogleLabel, LoginGitHubLabel, LoginFooter } from "./LoginText";
+import LoginLanguageSelector from "./LoginLanguageSelector";
 
 export default function LoginPage() {
   return (
     <div className="min-h-dvh flex items-center justify-center bg-bg p-4 relative overflow-hidden">
+      <LoginLanguageSelector />
+      
       {/* ── Background Detail ───────────────────────────── */}
       <div className="absolute -right-32 -bottom-32 opacity-[0.03] pointer-events-none select-none text-text-primary">
         <svg
@@ -27,7 +31,7 @@ export default function LoginPage() {
             VONSSY <span className="text-accent">AI</span>
           </h1>
           <p className="font-body text-[15px] text-text-secondary mt-3 max-w-[280px] mx-auto leading-relaxed">
-            Unleash the full spectrum of models. One unified interface.
+            <LoginTagline />
           </p>
         </div>
 
@@ -44,7 +48,7 @@ export default function LoginPage() {
               className="btn-secondary hover:bg-accent hover:text-accent-contrast hover:border-accent w-full justify-center mb-3"
             >
               <GoogleIcon />
-              Continue with Google
+              <LoginGoogleLabel />
             </button>
           </form>
 
@@ -59,7 +63,7 @@ export default function LoginPage() {
               className="btn-secondary hover:bg-accent hover:text-accent-contrast hover:border-accent w-full justify-center"
             >
               <GitHubIcon />
-              Continue with GitHub
+              <LoginGitHubLabel />
             </button>
           </form>
         </div>
@@ -67,7 +71,7 @@ export default function LoginPage() {
         {/* ── Footer ───────────────────────────────────────── */}
         <div className="mt-8 text-center">
           <p className="text-xs text-text-secondary font-mono">
-            Built by Vonssy — Heavenly Demon King
+            <LoginFooter />
           </p>
         </div>
       </div>

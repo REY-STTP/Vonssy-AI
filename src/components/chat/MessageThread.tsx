@@ -2,6 +2,7 @@
 
 import { useRef, useEffect, useState, useCallback } from "react";
 import MarkdownRenderer from "./MarkdownRenderer";
+import { useLocale } from "@/hooks/useLocale";
 
 interface Message {
   id: string;
@@ -38,6 +39,7 @@ export default function MessageThread({
   const [editContent, setEditContent] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const editTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const { t } = useLocale();
 
   // Focus edit textarea at end of text
   useEffect(() => {
@@ -143,14 +145,14 @@ export default function MessageThread({
                       onClick={cancelEdit}
                       className="btn-ghost text-xs px-3 py-1.5"
                     >
-                      Cancel
+                      {t("message.cancel")}
                     </button>
                     <button
                       type="button"
                       onClick={() => submitEdit(msg.id)}
                       className="btn-primary text-xs px-3 py-1.5"
                     >
-                      Save
+                      {t("message.save")}
                     </button>
                   </div>
                 </div>
@@ -167,7 +169,7 @@ export default function MessageThread({
                       type="button"
                       onClick={() => onRegenerateFrom(msg.id)}
                       className="text-text-secondary hover:text-text-primary p-1.5 rounded-md hover:bg-surface-raised transition-colors flex items-center justify-center"
-                      title="Regenerate response"
+                      title={t("message.regenerate")}
                     >
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
                     </button>
@@ -177,7 +179,7 @@ export default function MessageThread({
                       type="button"
                       onClick={() => startEdit(msg)}
                       className="text-text-secondary hover:text-text-primary p-1.5 rounded-md hover:bg-surface-raised transition-colors flex items-center justify-center"
-                      title="Edit prompt"
+                      title={t("message.edit")}
                     >
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
@@ -189,7 +191,7 @@ export default function MessageThread({
                     type="button"
                     onClick={() => copyMessage(msg.content, msg.id)}
                     className="text-text-secondary hover:text-text-primary p-1.5 rounded-md hover:bg-surface-raised transition-colors flex items-center justify-center"
-                    title="Copy prompt"
+                    title={t("message.copyMessage")}
                   >
                     {copiedId === msg.id ? (
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
@@ -225,7 +227,7 @@ export default function MessageThread({
                       type="button"
                       onClick={() => copyMessage(msg.content, msg.id)}
                       className="text-text-secondary hover:text-text-primary p-1.5 rounded-md hover:bg-surface-raised transition-colors flex items-center justify-center -ml-1.5"
-                      title="Copy response"
+                      title={t("message.copyResponse")}
                     >
                       {copiedId === msg.id ? (
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
@@ -266,7 +268,7 @@ export default function MessageThread({
           type="button"
           onClick={scrollToBottom}
           className="fixed bottom-24 right-8 flex items-center justify-center w-10 h-10 rounded-full bg-surface-raised border border-border shadow-md text-text-secondary hover:text-text-primary transition-colors z-50"
-          aria-label="Scroll to bottom"
+          aria-label={t("message.scrollToBottom")}
         >
           <svg
             width="16"

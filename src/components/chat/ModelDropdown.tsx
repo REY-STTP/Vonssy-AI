@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { MODEL_CATALOG, ModelCatalogEntry } from "@/lib/ai-providers";
 import { SIGIL_COMPONENTS } from "./SigilIcons";
+import { useLocale } from "@/hooks/useLocale";
 
 interface ModelDropdownProps {
   selected: ModelCatalogEntry;
@@ -17,6 +18,7 @@ export default function ModelDropdown({
 }: ModelDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const { t } = useLocale();
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -65,7 +67,7 @@ export default function ModelDropdown({
         } ${isOpen ? "bg-surface-raised text-text-primary" : ""}`}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
-        aria-label="Select model"
+        aria-label={t("model.select")}
         title={selected.label}
       >
         <SelectedSigil size={20} className={isOpen ? "text-accent" : ""} />

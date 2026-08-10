@@ -59,7 +59,7 @@ export default function RootLayout({
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var f=localStorage.getItem('vonssy-reading-font');if(f&&f!=='default')document.documentElement.setAttribute('data-reading-font',f)}catch(e){}})()`
+            __html: `(function(){try{var d=document.documentElement;var f=localStorage.getItem('vonssy-reading-font');if(f&&f!=='default')d.setAttribute('data-reading-font',f);var l=localStorage.getItem('vonssy-locale');if(l&&l!=='en'){d.setAttribute('data-locale',l);d.lang=l}}catch(e){}})()`
           }}
         />
       </head>
