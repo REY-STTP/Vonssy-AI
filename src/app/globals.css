@@ -15,6 +15,7 @@
     --accent-contrast: #FFFFFF;
     --danger: #B3432B;
     --danger-alpha: rgba(179, 67, 43, 0.1);
+    --font-reading: var(--font-inter);
   }
 
   [data-theme="dark"] {
@@ -29,6 +30,14 @@
     --accent-contrast: #1A1918;
     --danger: #E06A4C;
     --danger-alpha: rgba(224, 106, 76, 0.1);
+  }
+
+  [data-reading-font="serif"] {
+    --font-reading: var(--font-source-serif);
+  }
+
+  [data-reading-font="mono"] {
+    --font-reading: var(--font-jetbrains);
   }
 
   *,
@@ -153,7 +162,8 @@
 
   /* Markdown Content Styles */
   .prose-vonssy {
-    @apply text-text-primary font-body max-w-none;
+    @apply text-text-primary max-w-none;
+    font-family: var(--font-reading), sans-serif;
   }
   
   .prose-vonssy p {

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { signOut } from "next-auth/react";
 import { useTheme } from "next-themes";
+import { useReadingFont, type ReadingFont } from "@/hooks/useReadingFont";
 
 /* ── Types ─────────────────────────────────────────────────── */
 
@@ -103,6 +104,7 @@ export default function SettingsModal({ isOpen, onClose, user, quota }: Settings
   const dobTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { theme, setTheme } = useTheme();
+  const { readingFont, setReadingFont, mounted: fontMounted } = useReadingFont();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -536,6 +538,54 @@ export default function SettingsModal({ isOpen, onClose, user, quota }: Settings
 
       <p className="text-[12px] text-text-secondary">
         System matches your device settings automatically.
+      </p>
+
+      {/* ── Message Font ──────────────────────────── */}
+      <div className="border-t border-border" />
+
+      <div className="text-[13px] font-semibold text-text-primary">Message Font</div>
+
+      {/* Font Segmented Control */}
+      <div className="relative flex bg-surface-raised rounded-[10px] p-1">
+        {/* Sliding pill */}
+        {fontMounted && (() => {
+          const fontOptions: { id: ReadingFont; label: string }[] = [
+            { id: "default", label: "Default" },
+            { id: "serif", label: "Serif" },
+            { id: "mono", label: "Mono" },
+          ];
+          const activeFontIndex = fontOptions.findIndex((f) => f.id === readingFont);
+          return (
+            <div
+              className="absolute top-1 bottom-1 rounded-[8px] bg-surface border border-border shadow-soft transition-all duration-150 ease-out"
+              style={{
+                width: `calc(${100 / 3}% - 2px)`,
+                left: `calc(${(activeFontIndex * 100) / 3}% + 1px)`,
+              }}
+            />
+          );
+        })()}
+
+        {[
+          { id: "default" as ReadingFont, label: "Default", fontClass: "font-body" },
+          { id: "serif" as ReadingFont, label: "Serif", fontClass: "font-[family-name:var(--font-source-serif)]" },
+          { id: "mono" as ReadingFont, label: "Mono", fontClass: "font-mono" },
+        ].map((opt) => (
+          <button
+            key={opt.id}
+            type="button"
+            onClick={() => setReadingFont(opt.id)}
+            className={`relative z-10 flex-1 flex items-center justify-center py-2 rounded-[8px] text-[13px] font-medium transition-colors ${opt.fontClass} ${
+              readingFont === opt.id ? "text-text-primary" : "text-text-secondary hover:text-text-primary"
+            }`}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+
+      <p className="text-[12px] text-text-secondary">
+        Changes how your messages are displayed. Code blocks always use a fixed-width font.
       </p>
     </div>
   );

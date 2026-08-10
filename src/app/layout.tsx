@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Inter, Source_Serif_4, JetBrains_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { Toaster } from "sonner";
 import "./globals.css";
@@ -7,6 +7,12 @@ import "./globals.css";
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
+  display: "swap",
+});
+
+const sourceSerif4 = Source_Serif_4({
+  subsets: ["latin"],
+  variable: "--font-source-serif",
   display: "swap",
 });
 
@@ -46,10 +52,17 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${jetbrainsMono.variable}`}
+      className={`${inter.variable} ${sourceSerif4.variable} ${jetbrainsMono.variable}`}
       data-scroll-behavior="smooth"
       suppressHydrationWarning
     >
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var f=localStorage.getItem('vonssy-reading-font');if(f&&f!=='default')document.documentElement.setAttribute('data-reading-font',f)}catch(e){}})()`
+          }}
+        />
+      </head>
       <body>
         <ThemeProvider
           attribute="data-theme"

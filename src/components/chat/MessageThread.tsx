@@ -132,7 +132,7 @@ export default function MessageThread({
                       rows={1}
                       value={editContent}
                       onChange={(e) => setEditContent(e.target.value)}
-                      className="w-full block resize-none border-0 bg-transparent p-0 shadow-none outline-none text-[15px] text-text-primary leading-relaxed [field-sizing:content] max-h-[320px] overflow-y-auto whitespace-pre-wrap break-words"
+                      className="w-full block resize-none border-0 bg-transparent p-0 shadow-none outline-none text-[15px] text-text-primary leading-relaxed [field-sizing:content] max-h-[320px] overflow-y-auto whitespace-pre-wrap break-words font-reading"
                       style={{ scrollbarWidth: 'none' }}
                     />
                   </div>
@@ -159,7 +159,7 @@ export default function MessageThread({
               // User message styling
               <div className="self-end max-w-[85%] flex flex-col items-end">
                 <div className="bg-surface-raised text-text-primary rounded-[12px] px-4 py-3 leading-relaxed">
-                  <div className="whitespace-pre-wrap text-[15px]">{msg.content}</div>
+                  <div className="whitespace-pre-wrap text-[15px] font-reading">{msg.content}</div>
                 </div>
                 <div className="mt-1.5 mr-1 flex items-center gap-1">
                   {onRegenerateFrom && (
@@ -201,7 +201,7 @@ export default function MessageThread({
               </div>
             ) : (
               // Assistant message styling
-              <div className="self-start w-full leading-relaxed relative">
+              <div className="self-start w-full leading-relaxed relative font-reading">
                 <MarkdownRenderer content={msg.content} />
                 
                 {/* Assistant Metadata Line & Actions */}
@@ -243,7 +243,7 @@ export default function MessageThread({
 
         {/* Streaming content */}
         {isStreaming && (
-          <div className="self-start w-full leading-relaxed relative">
+          <div className="self-start w-full leading-relaxed relative font-reading">
             {streamingContent ? (
               <div>
                 <MarkdownRenderer content={streamingContent} />

@@ -26,6 +26,7 @@ const config: Config = {
         body: ["var(--font-inter)", "sans-serif"],
         display: ["var(--font-inter)", "sans-serif"],
         mono: ["var(--font-jetbrains)", "monospace"],
+        reading: ["var(--font-reading)", "sans-serif"],
       },
       keyframes: {
         "dropdown-enter": {
