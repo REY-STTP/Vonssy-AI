@@ -10,7 +10,7 @@ async function migrate() {
 
   try {
     console.log('Reading migration file...');
-    let migration = fs.readFileSync('db/migrations/0001_initial.sql', 'utf8');
+    let migration = fs.readFileSync('db/migrations/0005_add_feedback.sql', 'utf8');
     
     // Remove all single-line comments completely before splitting
     migration = migration.replace(/--.*$/gm, '');

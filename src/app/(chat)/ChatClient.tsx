@@ -64,6 +64,7 @@ export default function ChatClient({ user }: ChatClientProps) {
     regenerateFrom,
     loadMessages,
     clearMessages,
+    setFeedback,
   } = useChat({
     sessionId: activeSessionId,
     selectedModel,
@@ -195,6 +196,7 @@ export default function ChatClient({ user }: ChatClientProps) {
                 isStreaming={isStreaming}
                 onEditMessage={editMessage}
                 onRegenerateFrom={regenerateFrom}
+                onFeedback={setFeedback}
                 displayName={user.preferredName || user.name}
               />
               <Composer

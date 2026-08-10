@@ -10,6 +10,7 @@ interface Message {
   content: string;
   provider?: string | null;
   model?: string | null;
+  feedback?: string | null;
   createdAt?: string | null;
 }
 
@@ -58,6 +59,7 @@ export function useChat({
           content: m.content as string,
           provider: m.provider as string | null,
           model: m.model as string | null,
+          feedback: (m.feedback as string | null) ?? null,
           createdAt: m.createdAt as string | null,
         }))
       );
@@ -281,6 +283,37 @@ export function useChat({
     setLastUsage(null);
   }, []);
 
+  /**
+   * Set feedback (like/dislike) on a message with optimistic update.
+   */
+  const setFeedback = useCallback(
+    async (messageId: string, feedback: "like" | "dislike" | null) => {
+      // Optimistic update
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === messageId ? { ...m, feedback } : m
+        )
+      );
+
+      try {
+        const res = await fetch("/api/chat/feedback", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messageId, feedback }),
+        });
+        if (!res.ok) throw new Error();
+      } catch {
+        // Rollback on error
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === messageId ? { ...m, feedback: m.feedback } : m
+          )
+        );
+      }
+    },
+    []
+  );
+
   return {
     messages,
     truncationIndex,
@@ -293,5 +326,6 @@ export function useChat({
     regenerateFrom,
     loadMessages,
     clearMessages,
+    setFeedback,
   };
 }

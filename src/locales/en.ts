@@ -32,6 +32,8 @@ const en = {
   "message.edit": "Edit prompt",
   "message.copyMessage": "Copy prompt",
   "message.copyResponse": "Copy response",
+  "message.like": "Like",
+  "message.dislike": "Dislike",
   "message.scrollToBottom": "Scroll to bottom",
 
   // Settings

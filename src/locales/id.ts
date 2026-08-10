@@ -34,6 +34,8 @@ const id: Record<LocaleKeys, string> = {
   "message.edit": "Edit pesan",
   "message.copyMessage": "Salin pesan",
   "message.copyResponse": "Salin respons",
+  "message.like": "Suka",
+  "message.dislike": "Tidak suka",
   "message.scrollToBottom": "Gulir ke bawah",
 
   // Settings

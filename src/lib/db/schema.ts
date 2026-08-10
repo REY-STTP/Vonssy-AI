@@ -107,6 +107,7 @@ export const messages = pgTable(
     content: text("content").notNull(),
     provider: text("provider"),
     model: text("model"),
+    feedback: text("feedback"),  // 'like' | 'dislike' | null
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   },
   (table) => [
