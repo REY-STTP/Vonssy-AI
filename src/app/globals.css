@@ -171,7 +171,7 @@
   }
   
   .prose-vonssy h1, .prose-vonssy h2, .prose-vonssy h3, .prose-vonssy h4 {
-    @apply font-body font-semibold text-text-primary mt-8 mb-4 tracking-tight;
+    @apply font-reading font-semibold text-text-primary mt-8 mb-4 tracking-tight;
   }
   
   .prose-vonssy h1 { @apply text-2xl; }

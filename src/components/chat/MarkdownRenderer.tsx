@@ -154,7 +154,7 @@ export default function MarkdownRenderer({ content }: MarkdownRendererProps) {
         </h2>
       ),
       h3: ({ children, ...props }: React.ComponentPropsWithoutRef<"h3">) => (
-        <h3 className="text-base font-body font-bold text-bone mb-2 mt-3" {...props}>
+        <h3 className="text-base font-reading font-bold text-bone mb-2 mt-3" {...props}>
           {children}
         </h3>
       ),
@@ -230,7 +230,7 @@ export default function MarkdownRenderer({ content }: MarkdownRendererProps) {
   );
 
   return (
-    <div className="markdown-content text-bone font-body text-sm leading-relaxed">
+    <div className="markdown-content text-bone font-reading text-sm leading-relaxed">
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
         {content}
       </ReactMarkdown>
