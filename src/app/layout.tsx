@@ -23,11 +23,11 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Vonssy AI — Multi-Provider Chat",
+  title: "VonssyAI — Multi-Provider Chat",
   description:
     "Converse with multiple AI models through one unified interface. Built by Vonssy, the Heavenly Demon King.",
   openGraph: {
-    title: "Vonssy AI",
+    title: "VonssyAI",
     description:
       "Multi-provider AI chatbot — Qwen, Grok, Mercury and more through free-tier gateways.",
     type: "website",

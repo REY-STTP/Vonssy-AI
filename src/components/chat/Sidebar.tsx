@@ -113,7 +113,7 @@ export default function Sidebar({
       <div className="p-4 border-b border-border">
         <div className="flex items-center justify-between mb-4">
           <h1 className="font-display text-lg font-bold text-text-primary tracking-tight">
-            VONSSY <span className="text-accent">AI</span>
+            Vonssy<span className="text-accent">AI</span>
           </h1>
           <div className="flex items-center gap-1">
             {/* Desktop collapse */}

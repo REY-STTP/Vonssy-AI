@@ -28,7 +28,7 @@ export default function LoginPage() {
         {/* ── Wordmark & Copy ──────────────────────────────── */}
         <div className="text-center mb-10">
           <h1 className="font-body text-[32px] font-bold text-text-primary tracking-tight">
-            VONSSY <span className="text-accent">AI</span>
+            Vonssy<span className="text-accent">AI</span>
           </h1>
           <p className="font-body text-[15px] text-text-secondary mt-3 max-w-[280px] mx-auto leading-relaxed">
             <LoginTagline />
