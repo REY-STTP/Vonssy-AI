@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { MODEL_CATALOG, ModelCatalogEntry } from "@/lib/ai-providers";
-import { SIGIL_COMPONENTS } from "./SigilIcons";
+import { GatewaySigil } from "./SigilIcons";
 import { useLocale } from "@/hooks/useLocale";
 
 interface ModelDropdownProps {
@@ -44,8 +44,6 @@ export default function ModelDropdown({
     return () => document.removeEventListener("keydown", handleEscape);
   }, [isOpen]);
 
-  const SelectedSigil = SIGIL_COMPONENTS[selected.sigil];
-
   // Group models by gateway
   const groupedModels = MODEL_CATALOG.reduce((acc, entry) => {
     if (!acc[entry.gateway]) {
@@ -70,7 +68,7 @@ export default function ModelDropdown({
         aria-label={t("model.select")}
         title={selected.label}
       >
-        <SelectedSigil size={20} className={isOpen ? "text-accent" : ""} />
+        <GatewaySigil gateway={selected.gateway} size={20} className={isOpen ? "text-accent" : ""} />
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`transition-transform ${isOpen ? "rotate-180" : ""}`}>
           <polyline points="6 9 12 15 18 9" />
         </svg>
@@ -86,7 +84,6 @@ export default function ModelDropdown({
               </div>
               <div className="space-y-1">
                 {entries.map((entry) => {
-                  const EntrySigil = SIGIL_COMPONENTS[entry.sigil];
                   const isActive = entry.model === selected.model && entry.gateway === selected.gateway;
 
                   return (
@@ -106,7 +103,7 @@ export default function ModelDropdown({
                       }`}
                     >
                       <div className="shrink-0 text-text-secondary">
-                        <EntrySigil size={18} className={isActive ? "text-accent" : ""} />
+                        <GatewaySigil gateway={entry.gateway} size={18} className={isActive ? "text-accent" : ""} />
                       </div>
                       <div className="flex-1 min-w-0 flex flex-col">
                         <span className="text-[13px] font-medium text-text-primary truncate leading-tight">

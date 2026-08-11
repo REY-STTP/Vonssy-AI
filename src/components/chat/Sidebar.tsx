@@ -230,7 +230,7 @@ export default function Sidebar({
                       const btn = e.currentTarget;
                       const rect = btn.getBoundingClientRect();
                       const spaceBelow = window.innerHeight - rect.bottom;
-                      setMenuFlipUp(spaceBelow < 150);
+                      setMenuFlipUp(spaceBelow < 200);
                       setMenuOpenId(session.id);
                     }
                   }}

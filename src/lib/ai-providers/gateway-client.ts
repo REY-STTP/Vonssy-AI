@@ -6,6 +6,10 @@ export interface GatewayConfig {
   baseURL: string;
   apiKeyEnvVar: string;
   supportsReasoningEffort: boolean;
+  sigil: {
+    strokeLinecap?: "round" | "square" | "butt";
+    svgInnerHtml: string;
+  };
 }
 
 /**
