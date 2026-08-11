@@ -76,7 +76,7 @@ export default function RootLayout({
             offset="64px"
             style={{ "--width": "min(calc(100vw - 32px), 356px)" } as React.CSSProperties}
             toastOptions={{ 
-              className: 'font-body !bg-surface border-border text-text-primary !rounded-xl shadow-soft px-4 py-3',
+              className: 'font-body !bg-text-primary dark:!bg-surface !text-surface dark:!text-text-primary !border-none dark:border-solid dark:border-border !rounded-xl shadow-xl dark:shadow-soft px-4 py-3',
             }} 
             theme="system" 
           />

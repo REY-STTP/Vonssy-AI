@@ -100,6 +100,7 @@ export function useAllChats() {
   const setSearch = useCallback(
     (query: string) => {
       setSearchRaw(query);
+      searchRef.current = query;
 
       // Clear any pending debounce timer
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -121,6 +122,7 @@ export function useAllChats() {
   const setFilter = useCallback(
     (f: Filter) => {
       setFilterRaw(f);
+      filterRef.current = f;
 
       // Clear any pending search debounce
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -128,8 +130,7 @@ export function useAllChats() {
       // Fetch immediately for filter changes
       cursorRef.current = null;
       setHasMore(true);
-      // Use a microtask to ensure filterRef is updated before fetch
-      setTimeout(() => fetchPage(null, false), 0);
+      fetchPage(null, false);
     },
     [fetchPage]
   );

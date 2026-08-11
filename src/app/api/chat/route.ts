@@ -157,6 +157,15 @@ export async function POST(request: NextRequest) {
 
     sessionId = newSession.id;
   } else if (body.truncatePointMessageId) {
+    // Validate that it's a real UUID (not a temp ID from the client)
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(body.truncatePointMessageId);
+    if (!isUuid) {
+      return new Response(
+        JSON.stringify({ error: "Please wait a moment for the chat to sync before editing." }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
     // Validate truncation point
     const [existingMsg] = await db
       .select({ createdAt: messagesTable.createdAt })

@@ -8,7 +8,7 @@ import { useLocale } from "@/hooks/useLocale";
 interface AllChatsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSelectSession: (id: string) => void;
+  onSelectSession: (id: string, title: string | null, isPinned: boolean | null) => void;
   onDeleteSession: (id: string) => void;
   onRenameSession: (id: string, title: string) => void;
   onTogglePin: (id: string, isPinned: boolean) => void;
@@ -101,6 +101,11 @@ export default function AllChatsModal({
   // Click outside to close
   const handleOverlayClick = useCallback(
     (e: React.MouseEvent) => {
+      // If the target is no longer in the document (e.g. unmounted because we clicked delete/rename),
+      // do not treat it as an outside click.
+      if (!document.body.contains(e.target as Node)) {
+        return;
+      }
       if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
         onClose();
       }
@@ -309,7 +314,7 @@ export default function AllChatsModal({
 
                   return (
                     <div
-                      key={session.id}
+                      key={virtualRow.key}
                       style={{
                         position: "absolute",
                         top: 0,
@@ -317,6 +322,7 @@ export default function AllChatsModal({
                         width: "100%",
                         height: virtualRow.size,
                         transform: `translateY(${virtualRow.start}px)`,
+                        zIndex: menuOpenId === session.id ? 10 : 1,
                       }}
                       className="group flex items-center px-6 py-3 border-b border-border hover:bg-surface-raised transition-colors"
                     >
@@ -340,7 +346,7 @@ export default function AllChatsModal({
                         <button
                           type="button"
                           onClick={() => {
-                            onSelectSession(session.id);
+                            onSelectSession(session.id, session.title, session.isPinned);
                             onClose();
                           }}
                           className="flex items-center gap-2 min-w-0 flex-1 text-left"

@@ -219,6 +219,18 @@ export function useChat({
         setTruncationIndex(null);
         abortControllerRef.current = null;
         onMessageComplete?.();
+
+        // Refetch in background to replace temp IDs with real UUIDs from DB
+        if (currentSessionIdRef.current) {
+          fetch(`/api/sessions/${currentSessionIdRef.current}`)
+            .then((res) => res.json())
+            .then((data) => {
+              if (data.messages && Array.isArray(data.messages)) {
+                setMessages(data.messages);
+              }
+            })
+            .catch(() => {}); // Ignore background refetch errors
+        }
       }
     },
     [messages, selectedModel, onSessionCreated, onMessageComplete]

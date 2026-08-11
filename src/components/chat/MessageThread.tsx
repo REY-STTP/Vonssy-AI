@@ -37,7 +37,7 @@ export default function MessageThread({
 }: MessageThreadProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [showScrollButton, setShowScrollButton] = useState(false);
+  const [scrollAction, setScrollAction] = useState<"up" | "down" | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -58,23 +58,41 @@ export default function MessageThread({
 
   // Auto-scroll on new content
   useEffect(() => {
-    if (!showScrollButton) {
+    if (scrollAction !== "down") {
       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages, streamingContent, showScrollButton]);
+  }, [messages, streamingContent, scrollAction]);
 
   const handleScroll = useCallback(() => {
     const el = containerRef.current;
     if (!el) return;
+    
+    // Check if scrollable
+    const isScrollable = el.scrollHeight > el.clientHeight;
+    if (!isScrollable) {
+      setScrollAction(null);
+      return;
+    }
+
     const threshold = 100;
-    const isNearBottom =
-      el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
-    setShowScrollButton(!isNearBottom);
+    const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
+    const isNearTop = el.scrollTop < threshold;
+    
+    if (!isNearBottom) {
+      setScrollAction("down");
+    } else if (isNearBottom && !isNearTop) {
+      setScrollAction("up");
+    } else {
+      setScrollAction(null);
+    }
   }, []);
 
-  const scrollToBottom = () => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-    setShowScrollButton(false);
+  const handleScrollButton = () => {
+    if (scrollAction === "down") {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    } else if (scrollAction === "up") {
+      containerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    }
   };
 
   const startEdit = (msg: Message) => {
@@ -212,10 +230,10 @@ export default function MessageThread({
                 {/* Assistant Metadata Line & Actions */}
                 <div className="flex flex-col gap-1 mt-2">
                   <div className="flex items-center gap-3 text-xs font-mono text-text-secondary">
-                    {msg.provider && msg.model && (
+                    {msg.model && (
                       <div className="flex items-center gap-1.5 select-none">
                         <span>◆</span>
-                        <span>{msg.provider}/{msg.model}</span>
+                        <span>{msg.model}</span>
                       </div>
                     )}
                     {msg.createdAt && (
@@ -297,27 +315,43 @@ export default function MessageThread({
         <div ref={bottomRef} className="h-4" />
       </div>
 
-      {/* Scroll to bottom button */}
-      {showScrollButton && (
+      {/* Scroll button */}
+      {scrollAction && (
         <button
           type="button"
-          onClick={scrollToBottom}
-          className="fixed bottom-24 right-8 flex items-center justify-center w-10 h-10 rounded-full bg-surface-raised border border-border shadow-md text-text-secondary hover:text-text-primary transition-colors z-50"
-          aria-label={t("message.scrollToBottom")}
+          onClick={handleScrollButton}
+          className="fixed bottom-36 right-8 flex items-center justify-center w-10 h-10 rounded-full bg-surface-raised border border-border shadow-md text-text-secondary hover:text-text-primary transition-colors z-50"
+          aria-label={scrollAction === "down" ? t("message.scrollToBottom") : "Scroll to top"}
         >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <polyline points="19 12 12 19 5 12" />
-          </svg>
+          {scrollAction === "down" ? (
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <polyline points="19 12 12 19 5 12" />
+            </svg>
+          ) : (
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <line x1="12" y1="19" x2="12" y2="5" />
+              <polyline points="5 12 12 5 19 12" />
+            </svg>
+          )}
         </button>
       )}
     </div>

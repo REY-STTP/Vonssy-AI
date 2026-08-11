@@ -40,6 +40,7 @@ export default function ChatClient({ user }: ChatClientProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAllChatsOpen, setIsAllChatsOpen] = useState(false);
+  const [fallbackSession, setFallbackSession] = useState<{ id: string, title: string | null, isPinned: boolean | null } | null>(null);
   const { t } = useLocale();
 
   useEffect(() => {
@@ -101,6 +102,7 @@ export default function ChatClient({ user }: ChatClientProps) {
     (id: string) => {
       if (id === activeSessionId) return;
       setActiveSessionId(id);
+      setFallbackSession(null); // Cleared because it comes from sidebar
     },
     [activeSessionId]
   );
@@ -133,8 +135,9 @@ export default function ChatClient({ user }: ChatClientProps) {
   }, []);
 
   const handleSelectSessionFromAllChats = useCallback(
-    (id: string) => {
+    (id: string, title: string | null, isPinned: boolean | null) => {
       setActiveSessionId(id);
+      setFallbackSession({ id, title, isPinned });
       setIsAllChatsOpen(false);
     },
     []
@@ -166,14 +169,24 @@ export default function ChatClient({ user }: ChatClientProps) {
           {/* Chat Header — always visible */}
           {(() => {
             const activeSession = activeSessionId
-              ? sessions.find(s => s.id === activeSessionId)
+              ? sessions.find(s => s.id === activeSessionId) || (fallbackSession?.id === activeSessionId ? fallbackSession : null)
               : null;
             return (
               <ChatHeader
                 sessionTitle={activeSession?.title ?? null}
                 isPinned={activeSession?.isPinned ?? null}
-                onRename={activeSession ? (newTitle) => renameSession(activeSessionId!, newTitle) : () => {}}
-                onTogglePin={activeSession ? () => togglePin(activeSessionId!, !activeSession.isPinned) : () => {}}
+                onRename={activeSession ? (newTitle) => {
+                  renameSession(activeSessionId!, newTitle);
+                  if (fallbackSession?.id === activeSessionId) {
+                    setFallbackSession({ ...fallbackSession, title: newTitle });
+                  }
+                } : () => {}}
+                onTogglePin={activeSession ? () => {
+                  togglePin(activeSessionId!, !activeSession.isPinned);
+                  if (fallbackSession?.id === activeSessionId) {
+                    setFallbackSession({ ...fallbackSession, isPinned: !activeSession.isPinned });
+                  }
+                } : () => {}}
                 onDelete={activeSession ? () => handleDeleteSession(activeSessionId!) : () => {}}
                 hasSession={!!activeSession}
               />

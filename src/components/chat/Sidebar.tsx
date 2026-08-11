@@ -73,6 +73,22 @@ export default function Sidebar({
     setRenamingId(null);
   };
 
+  // Close mobile overlay when navigating
+  const handleSelectSession = (id: string) => {
+    setIsOpen(false);
+    onSelectSession(id);
+  };
+
+  const handleNewChat = () => {
+    setIsOpen(false);
+    onNewChat();
+  };
+
+  const handleOpenAllChats = () => {
+    setIsOpen(false);
+    onOpenAllChats?.();
+  };
+
   const formatTimestamp = (ts: string | null) => {
     if (!ts) return "";
     const date = new Date(ts);
@@ -138,7 +154,7 @@ export default function Sidebar({
         </div>
         <button
           type="button"
-          onClick={onNewChat}
+          onClick={handleNewChat}
           className="btn-primary w-full justify-center text-sm"
         >
           + {t("sidebar.newChat")}
@@ -178,7 +194,7 @@ export default function Sidebar({
             ) : (
               <button
                 type="button"
-                onClick={() => onSelectSession(session.id)}
+                onClick={() => handleSelectSession(session.id)}
                 className="w-full text-left"
               >
                 <div className="flex items-center gap-1.5">
@@ -267,7 +283,7 @@ export default function Sidebar({
       <div className="px-2 pb-1">
         <button
           type="button"
-          onClick={onOpenAllChats}
+          onClick={handleOpenAllChats}
           className="w-full flex items-center gap-2.5 px-3 py-2 rounded-[10px] text-[13px] font-medium text-text-secondary hover:text-text-primary hover:bg-surface-raised transition-colors"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -326,7 +342,7 @@ export default function Sidebar({
       {/* New Chat icon-only */}
       <button
         type="button"
-        onClick={onNewChat}
+        onClick={handleNewChat}
         className="flex items-center justify-center w-10 h-10 mt-1 mb-1 rounded-lg bg-accent text-accent-contrast hover:opacity-90 transition-opacity"
         aria-label={t("sidebar.newChat")}
         title={t("sidebar.newChat")}
@@ -339,7 +355,7 @@ export default function Sidebar({
       {/* All Chats icon-only */}
       <button
         type="button"
-        onClick={onOpenAllChats}
+        onClick={handleOpenAllChats}
         className="flex items-center justify-center w-8 h-8 text-text-secondary hover:text-text-primary hover:bg-surface-raised rounded-lg transition-colors"
         aria-label={t("sidebar.allChats")}
         title={t("sidebar.allChats")}
