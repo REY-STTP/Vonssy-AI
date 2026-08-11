@@ -74,8 +74,7 @@ export async function checkRateLimit(
     );
 
   const globalCount = globalUsage?.total ?? 0;
-  // const globalLimit = globalConfig?.dailyMessageLimit ?? 25;
-  const globalLimit = 30;
+  const globalLimit = globalConfig?.dailyMessageLimit ?? 25;
 
   // 4. Check global limit
   if (globalCount >= globalLimit) {

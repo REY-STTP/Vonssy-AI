@@ -131,7 +131,7 @@ export default function Composer({
                   )}
                 </button>
                 {showReasoningMenu && (
-                  <div className="absolute bottom-full right-0 mb-2 w-32 bg-surface border border-border rounded-lg shadow-dropdown overflow-hidden animate-fade-in z-50">
+                  <div className="absolute bottom-full right-0 mb-5 w-32 bg-surface border border-border rounded-lg shadow-dropdown overflow-hidden animate-fade-in z-50">
                     {(["low", "medium", "high"] as const).map((level) => (
                       <button
                         key={level}
