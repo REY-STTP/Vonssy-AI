@@ -142,6 +142,31 @@ export function useAllChats() {
     };
   }, []);
 
+  /**
+   * Optimistically remove a session from the All Chats list (e.g. after delete).
+   */
+  const removeSession = useCallback((id: string) => {
+    setSessions((prev) => prev.filter((s) => s.id !== id));
+  }, []);
+
+  /**
+   * Optimistically update a session's title in the All Chats list.
+   */
+  const updateSessionTitle = useCallback((id: string, title: string) => {
+    setSessions((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, title } : s))
+    );
+  }, []);
+
+  /**
+   * Optimistically toggle a session's pin state in the All Chats list.
+   */
+  const togglePinSession = useCallback((id: string, isPinned: boolean) => {
+    setSessions((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, isPinned } : s))
+    );
+  }, []);
+
   return {
     sessions,
     isLoading,
@@ -152,5 +177,8 @@ export function useAllChats() {
     setFilter,
     loadMore,
     reset,
+    removeSession,
+    updateSessionTitle,
+    togglePinSession,
   };
 }

@@ -243,6 +243,9 @@ export default function ChatClient({ user }: ChatClientProps) {
         isOpen={isAllChatsOpen}
         onClose={() => setIsAllChatsOpen(false)}
         onSelectSession={handleSelectSessionFromAllChats}
+        onDeleteSession={handleDeleteSession}
+        onRenameSession={renameSession}
+        onTogglePin={togglePin}
       />
     </div>
   );

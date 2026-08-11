@@ -9,18 +9,27 @@ interface AllChatsModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSelectSession: (id: string) => void;
+  onDeleteSession: (id: string) => void;
+  onRenameSession: (id: string, title: string) => void;
+  onTogglePin: (id: string, isPinned: boolean) => void;
 }
 
 export default function AllChatsModal({
   isOpen,
   onClose,
   onSelectSession,
+  onDeleteSession,
+  onRenameSession,
+  onTogglePin,
 }: AllChatsModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const { t } = useLocale();
 
   const {
@@ -33,6 +42,9 @@ export default function AllChatsModal({
     setFilter,
     loadMore,
     reset,
+    removeSession,
+    updateSessionTitle,
+    togglePinSession,
   } = useAllChats();
 
   // Focus trap & restore focus
@@ -43,6 +55,7 @@ export default function AllChatsModal({
       setTimeout(() => modalRef.current?.focus(), 50);
     } else {
       previousFocusRef.current?.focus();
+      setRenamingId(null);
     }
   }, [isOpen, reset]);
 
@@ -50,11 +63,17 @@ export default function AllChatsModal({
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        if (renamingId) {
+          setRenamingId(null);
+        } else {
+          onClose();
+        }
+      }
     };
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, renamingId]);
 
   // Prevent body scroll
   useEffect(() => {
@@ -89,9 +108,47 @@ export default function AllChatsModal({
     [onClose]
   );
 
+  // ── Row actions ──────────────────────────────────────────
+
+  const handleStartRename = useCallback((session: { id: string; title: string | null }) => {
+    setRenamingId(session.id);
+    setRenameValue(session.title || "");
+  }, []);
+
+  const handleSubmitRename = useCallback(
+    (id: string) => {
+      const trimmed = renameValue.trim();
+      if (trimmed && trimmed !== sessions.find((s) => s.id === id)?.title) {
+        updateSessionTitle(id, trimmed);
+        onRenameSession(id, trimmed);
+      }
+      setRenamingId(null);
+    },
+    [renameValue, sessions, updateSessionTitle, onRenameSession]
+  );
+
+  const handleTogglePin = useCallback(
+    (id: string, currentlyPinned: boolean | null) => {
+      const newPinState = !currentlyPinned;
+      togglePinSession(id, newPinState);
+      onTogglePin(id, newPinState);
+    },
+    [togglePinSession, onTogglePin]
+  );
+
+  const handleDelete = useCallback(
+    (id: string) => {
+      // Optimistic removal from All Chats local state
+      removeSession(id);
+      // Delegate to parent (ChatClient) for API call + sidebar refetch
+      onDeleteSession(id);
+    },
+    [removeSession, onDeleteSession]
+  );
+
   // Virtualizer
   const virtualizer = useVirtualizer({
-    count: sessions.length + (hasMore ? 1 : 0), // +1 for sentinel/loading row
+    count: sessions.length + (hasMore ? 1 : 0),
     getScrollElement: () => scrollRef.current,
     estimateSize: () => 56,
     overscan: 5,
@@ -248,14 +305,11 @@ export default function AllChatsModal({
                   }
 
                   const session = sessions[virtualRow.index];
+                  const isRenaming = renamingId === session.id;
+
                   return (
-                    <button
+                    <div
                       key={session.id}
-                      type="button"
-                      onClick={() => {
-                        onSelectSession(session.id);
-                        onClose();
-                      }}
                       style={{
                         position: "absolute",
                         top: 0,
@@ -264,20 +318,114 @@ export default function AllChatsModal({
                         height: virtualRow.size,
                         transform: `translateY(${virtualRow.start}px)`,
                       }}
-                      className="flex items-center justify-between px-6 py-3 text-left hover:bg-surface-raised transition-colors border-b border-border/50"
+                      className="group flex items-center px-6 py-3 border-b border-border hover:bg-surface-raised transition-colors"
                     >
-                      <div className="flex items-center gap-2 min-w-0 flex-1">
-                        {session.isPinned && (
-                          <span className="text-accent text-xs shrink-0" title="Pinned">★</span>
-                        )}
-                        <span className="text-sm font-medium text-text-primary truncate">
-                          {session.title || "New Chat"}
-                        </span>
-                      </div>
-                      <span className="text-[13px] text-text-secondary shrink-0 ml-4">
-                        {formatRelativeTime(session.updatedAt)}
-                      </span>
-                    </button>
+                      {isRenaming ? (
+                        /* ── Inline rename input ── */
+                        <input
+                          type="text"
+                          value={renameValue}
+                          onChange={(e) => setRenameValue(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleSubmitRename(session.id);
+                            if (e.key === "Escape") setRenamingId(null);
+                          }}
+                          onBlur={() => handleSubmitRename(session.id)}
+                          className="flex-1 bg-surface-raised border border-border rounded-md px-2 py-1 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-accent"
+                          autoFocus
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      ) : (
+                        /* ── Normal row: click-to-open ── */
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onSelectSession(session.id);
+                            onClose();
+                          }}
+                          className="flex items-center gap-2 min-w-0 flex-1 text-left"
+                        >
+                          {session.isPinned && (
+                            <span className="text-accent text-xs shrink-0" title="Pinned">★</span>
+                          )}
+                          <span className="text-sm font-medium text-text-primary truncate">
+                            {session.title || "New Chat"}
+                          </span>
+                        </button>
+                      )}
+
+                      {/* Right side: timestamp + kebab menu */}
+                      {!isRenaming && (
+                        <div className="flex items-center gap-1 shrink-0 ml-4">
+                          <span className="text-[13px] text-text-secondary mr-1">
+                            {formatRelativeTime(session.updatedAt)}
+                          </span>
+
+                          {/* Kebab menu (⋯) */}
+                          <div className="relative">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setMenuOpenId(menuOpenId === session.id ? null : session.id);
+                              }}
+                              className="text-text-secondary hover:text-text-primary px-1 py-0.5 text-sm transition-colors"
+                              aria-label={t("sidebar.options")}
+                            >
+                              ⋯
+                            </button>
+
+                            {menuOpenId === session.id && (
+                              <div className="absolute right-0 top-6 z-50 bg-surface border border-border rounded-lg shadow-soft min-w-[160px] overflow-hidden">
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); handleStartRename(session); setMenuOpenId(null); }}
+                                  className="w-full text-left px-3 py-2.5 text-xs font-medium text-text-primary hover:bg-surface-raised transition-colors flex items-center gap-2"
+                                >
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                  </svg>
+                                  {t("sidebar.rename")}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); handleTogglePin(session.id, session.isPinned); setMenuOpenId(null); }}
+                                  className="w-full text-left px-3 py-2.5 text-xs font-medium text-text-primary hover:bg-surface-raised transition-colors flex items-center gap-2"
+                                >
+                                  {session.isPinned ? (
+                                    <>
+                                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                                      </svg>
+                                      {t("sidebar.unpin")}
+                                    </>
+                                  ) : (
+                                    <>
+                                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                                        <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26" />
+                                      </svg>
+                                      {t("sidebar.pin")}
+                                    </>
+                                  )}
+                                </button>
+                                <div className="border-t border-border" />
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); handleDelete(session.id); setMenuOpenId(null); }}
+                                  className="w-full text-left px-3 py-2.5 text-xs font-medium text-danger hover:bg-surface-raised transition-colors flex items-center gap-2"
+                                >
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                  </svg>
+                                  {t("sidebar.delete")}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
               </div>
