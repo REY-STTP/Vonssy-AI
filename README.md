@@ -119,9 +119,11 @@ See [`.env.example`](.env.example) for the full list. Key variables:
 | `AUTH_SECRET` | NextAuth secret (`openssl rand -base64 32`) |
 | `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | Google OAuth credentials |
 | `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` | GitHub OAuth credentials |
-| `SEEKAI_API_KEY` | SeekAI gateway key |
+| `GOROUTER_API_KEY` | Gorouter gateway key |
+| `TABITOKEN_API_KEY` | TabiToken gateway key |
 | `XKIRO_API_KEY` | XKiro gateway key |
-| `NARA_API_KEY` | Nara gateway key |
+| `NARAROUTER_API_KEY` | NaraRouter gateway key |
+| `DAHL_API_KEY` | Dahl gateway key |
 | `INCEPTION_API_KEY` | Inception Labs gateway key |
 | `QUOTA_HASH_SECRET` | HMAC secret for identity/IP hashing in rate-limit ledgers |
 | `NEXTAUTH_URL` | App URL for Auth.js callbacks (default: `http://localhost:3000`) |

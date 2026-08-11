@@ -72,6 +72,7 @@ export function useChat({
     truncatePointMessageId?: string;
     editContent?: string;
     truncateIndex?: number;
+    reasoningEffort?: "low" | "medium" | "high";
   }
 
   const sendMessage = useCallback(
@@ -129,6 +130,7 @@ export function useChat({
             chatSessionId: currentSessionIdRef.current,
             truncatePointMessageId: options?.truncatePointMessageId,
             editContent: options?.editContent,
+            reasoningEffort: options?.reasoningEffort,
           }),
           signal: abortController.signal,
         });

@@ -45,7 +45,7 @@ export class OpenAICompatibleGateway implements AIProvider {
       const requestBody: Record<string, unknown> = {
         model: options.model,
         messages: options.messages,
-        temperature: options.temperature ?? 0.7,
+        temperature: options.temperature ?? 0.75,
         max_tokens: options.maxTokens,
         stream: true,
         stream_options: { include_usage: true },

@@ -132,7 +132,7 @@ export default function MarkdownRenderer({ content }: MarkdownRendererProps) {
         // Inline code
         return (
           <code
-            className="px-1.5 py-0.5 bg-wraith/30 text-ember font-mono text-[0.85em] border border-wraith/50"
+            className="px-1.5 py-0.5 bg-wraith/20 text-ember font-mono text-[0.85em] rounded-md"
             {...props}
           >
             {children}

@@ -33,6 +33,7 @@ const en = {
   "composer.inputLabel": "Message input",
   "composer.sendLabel": "Send message",
   "composer.stopLabel": "Stop generating",
+  "composer.reasoningLabel": "Reasoning Effort",
 
   // MessageThread
   "message.cancel": "Cancel",

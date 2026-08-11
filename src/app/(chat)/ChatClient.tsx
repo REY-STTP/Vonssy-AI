@@ -40,6 +40,7 @@ export default function ChatClient({ user }: ChatClientProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAllChatsOpen, setIsAllChatsOpen] = useState(false);
+  const [reasoningEffort, setReasoningEffort] = useState<"low" | "medium" | "high">("medium");
   const [fallbackSession, setFallbackSession] = useState<{ id: string, title: string | null, isPinned: boolean | null } | null>(null);
   const { t } = useLocale();
 
@@ -214,6 +215,8 @@ export default function ChatClient({ user }: ChatClientProps) {
                   onStop={stopGeneration}
                   isStreaming={isStreaming}
                   quota={quota ? { remaining: quota.remaining, limit: quota.limit } : undefined}
+                  reasoningEffort={reasoningEffort}
+                  onReasoningChange={setReasoningEffort}
                 />
               </div>
             </div>
@@ -237,6 +240,8 @@ export default function ChatClient({ user }: ChatClientProps) {
                 onStop={stopGeneration}
                 isStreaming={isStreaming}
                 quota={quota ? { remaining: quota.remaining, limit: quota.limit } : undefined}
+                reasoningEffort={reasoningEffort}
+                onReasoningChange={setReasoningEffort}
               />
             </>
           )}

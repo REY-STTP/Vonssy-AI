@@ -7,11 +7,11 @@ import { AIProvider } from "./types";
  * No changes to API routes or UI needed.
  */
 export const GATEWAYS: Record<string, GatewayConfig> = {
-  seekai: {
-    name: "seekai",
-    baseURL: "https://seekai.cc/v1",
-    apiKeyEnvVar: "SEEKAI_API_KEY",
-    supportsReasoningEffort: false,
+  gorouter: {
+    name: "gorouter",
+    baseURL: "https://gorouter.app/v1",
+    apiKeyEnvVar: "GOROUTER_API_KEY",
+    supportsReasoningEffort: true,
     sigil: {
       strokeLinecap: "round",
       svgInnerHtml: `
@@ -25,11 +25,25 @@ export const GATEWAYS: Record<string, GatewayConfig> = {
       `,
     },
   },
+  tabitoken: {
+    name: "tabitoken",
+    baseURL: "https://tabitoken.com/v1",
+    apiKeyEnvVar: "TABITOKEN_API_KEY",
+    supportsReasoningEffort: true,
+    sigil: {
+      strokeLinecap: "round",
+      svgInnerHtml: `
+        <polygon points="12,3 21,18 3,18" />
+        <polygon points="12,21 3,6 21,6" />
+        <circle cx="12" cy="12" r="2" fill="currentColor" stroke="none" />
+      `,
+    },
+  },
   xkiro: {
     name: "xkiro",
     baseURL: "https://api.xkiro.com/v1",
     apiKeyEnvVar: "XKIRO_API_KEY",
-    supportsReasoningEffort: false,
+    supportsReasoningEffort: true,
     sigil: {
       strokeLinecap: "square",
       svgInnerHtml: `
@@ -41,10 +55,24 @@ export const GATEWAYS: Record<string, GatewayConfig> = {
       `,
     },
   },
-  nara: {
-    name: "nara",
+  nararouter: {
+    name: "nararouter",
     baseURL: "https://router.bynara.id/v1",
-    apiKeyEnvVar: "NARA_API_KEY",
+    apiKeyEnvVar: "NARAROUTER_API_KEY",
+    supportsReasoningEffort: true,
+    sigil: {
+      strokeLinecap: "square",
+      svgInnerHtml: `
+        <polygon points="2,12 12,4 22,12 12,20" />
+        <line x1="12" y1="4" x2="12" y2="20" />
+        <polygon points="12,9 15,12 12,15 9,12" fill="currentColor" stroke="none" />
+      `,
+    },
+  },
+  dahl: {
+    name: "dahl",
+    baseURL: "https://inference.dahl.global/v1",
+    apiKeyEnvVar: "DAHL_API_KEY",
     supportsReasoningEffort: true,
     sigil: {
       strokeLinecap: "square",
@@ -127,58 +155,105 @@ export interface ModelCatalogEntry {
 }
 
 export const MODEL_CATALOG: ModelCatalogEntry[] = [
-  /** seekai */
+  /** gorouter */
   {
-    label: "Claude Opus 4.7",
-    gateway: "seekai",
-    model: "claude-opus-4-7",
-  },
-  {
-    label: "Claude Opus 4.8",
-    gateway: "seekai",
-    model: "claude-opus-4-8",
+    label: "Claude Opus 5 Thinking",
+    gateway: "gorouter",
+    model: "claude-opus-5-thinking",
   },
   {
     label: "Claude Opus 5",
-    gateway: "seekai",
+    gateway: "gorouter",
     model: "claude-opus-5",
   },
   {
-    label: "Claude Fable 5",
-    gateway: "seekai",
-    model: "claude-fable-5",
+    label: "Claude Opus 4.8 Thinking",
+    gateway: "gorouter",
+    model: "claude-opus-4-8-thinking",
   },
   {
-    label: "ChatGPT 5.5",
-    gateway: "seekai",
-    model: "gpt-5-5",
+    label: "Claude Opus 4.8",
+    gateway: "gorouter",
+    model: "claude-opus-4-8",
+  },
+  /** tabitoken */
+  {
+    label: "Claude Opus 5 Thinking",
+    gateway: "tabitoken",
+    model: "claude-opus-5-thinking",
   },
   {
-    label: "ChatGPT 5.6",
-    gateway: "seekai",
-    model: "gpt-5.6",
+    label: "Claude Opus 5",
+    gateway: "tabitoken",
+    model: "claude-opus-5",
   },
   {
-    label: "ChatGPT 5.6-sol",
-    gateway: "seekai",
-    model: "gpt-5.6-sol",
+    label: "Claude Opus 4.8 Thinking",
+    gateway: "tabitoken",
+    model: "claude-opus-4-8-thinking",
+  },
+  {
+    label: "Claude Opus 4.8",
+    gateway: "tabitoken",
+    model: "claude-opus-4-8",
   },
   /** xkiro */
+  {
+    label: "DeepSeek V4 Pro",
+    gateway: "xkiro",
+    model: "deepseek/deepseek-v4-pro",
+  },
+  {
+    label: "DeepSeek V4 Flash",
+    gateway: "xkiro",
+    model: "deepseek/deepseek-v4-flash",
+  },
   {
     label: "Qwen 3.8 Max",
     gateway: "xkiro",
     model: "qwen/qwen3.8-max",
   },
   {
-    label: "DeepSeek V4 Pro",
+    label: "Qwen 3.7 Max",
     gateway: "xkiro",
-    model: "deepseek/deepseek-v4-pro",
+    model: "qwen/qwen3.7-max",
   },
-  /** nara */
   {
-    label: "Grok 4.5",
-    gateway: "nara",
+    label: "Minimax M2.7",
+    gateway: "xkiro",
+    model: "minimax/minimax-m2.7",
+  },
+  /** nararouter */
+  {
+    label: "Grok 4.5 Free",
+    gateway: "nararouter",
     model: "grok-4.5-free",
+  },
+  {
+    label: "Longcat 2.0 Free",
+    gateway: "nararouter",
+    model: "longcat-2.0-free",
+  },
+  {
+    label: "Agnes 2.5 Pro",
+    gateway: "nararouter",
+    model: "agnes-2.5-pro",
+  },
+  {
+    label: "Mistral Medium 3.5",
+    gateway: "nararouter",
+    model: "mistral-medium-3-5",
+  },
+  /** dahl */
+  {
+    label: "MiniMax M2.7",
+    gateway: "dahl",
+    model: "MiniMaxAI/MiniMax-M2.7",
+  },
+  {
+    label: "Kimi K2.6",
+    gateway: "dahl",
+    model: "moonshotai/Kimi-K2.6",
   },
   /** inception */
   {

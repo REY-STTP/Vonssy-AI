@@ -3,16 +3,19 @@
 import { useState, useRef, useEffect, KeyboardEvent } from "react";
 import ModelDropdown from "./ModelDropdown";
 import { ModelCatalogEntry } from "@/lib/ai-providers";
+import { GATEWAYS } from "@/lib/ai-providers/registry";
 import { useLocale } from "@/hooks/useLocale";
 
 interface ComposerProps {
   selectedModel: ModelCatalogEntry;
   onModelSelect: (entry: ModelCatalogEntry) => void;
-  onSend: (content: string) => void;
+  onSend: (content: string, options?: { reasoningEffort?: "low" | "medium" | "high" }) => void;
   onStop: () => void;
   isStreaming: boolean;
   disabled?: boolean;
   quota?: { remaining: number; limit: number };
+  reasoningEffort?: "low" | "medium" | "high";
+  onReasoningChange?: (effort: "low" | "medium" | "high") => void;
 }
 
 export default function Composer({
@@ -23,26 +26,50 @@ export default function Composer({
   isStreaming,
   disabled = false,
   quota,
+  reasoningEffort,
+  onReasoningChange,
 }: ComposerProps) {
   const [content, setContent] = useState("");
+  const [showReasoningMenu, setShowReasoningMenu] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const reasoningMenuRef = useRef<HTMLDivElement>(null);
   const { t } = useLocale();
 
   useEffect(() => {
-    const el = textareaRef.current;
-    if (el) {
-      el.style.height = "auto";
-      el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
-    }
+    const adjustHeight = () => {
+      const el = textareaRef.current;
+      if (el) {
+        el.style.height = "0px";
+        const scrollHeight = el.scrollHeight;
+        el.style.height = `${Math.max(32, Math.min(scrollHeight, 200))}px`;
+      }
+    };
+
+    adjustHeight();
+
+    window.addEventListener("resize", adjustHeight);
+    return () => window.removeEventListener("resize", adjustHeight);
   }, [content]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (reasoningMenuRef.current && !reasoningMenuRef.current.contains(e.target as Node)) {
+        setShowReasoningMenu(false);
+      }
+    };
+    if (showReasoningMenu) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showReasoningMenu]);
 
   const handleSend = () => {
     const trimmed = content.trim();
     if (!trimmed || disabled) return;
-    onSend(trimmed);
+    onSend(trimmed, { reasoningEffort });
     setContent("");
     if (textareaRef.current) {
-      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = "32px";
     }
   };
 
@@ -56,7 +83,6 @@ export default function Composer({
   return (
     <div className="w-full px-4 pb-6 pt-2 bg-bg animate-fade-slide-in">
       <div className="flex flex-col max-w-3xl mx-auto gap-2">
-        {/* Main composer box */}
         <div className="flex items-center gap-2 bg-surface border border-border rounded-[16px] shadow-soft p-2 transition-all">
           
           <div className="shrink-0 z-20">
@@ -82,7 +108,51 @@ export default function Composer({
             />
           </div>
 
-          <div className="shrink-0 ml-1">
+          <div className="shrink-0 ml-2 flex items-center gap-2 mr-1.5">
+            {GATEWAYS[selectedModel.gateway]?.supportsReasoningEffort && (
+              <div className="relative" ref={reasoningMenuRef}>
+                <button
+                  type="button"
+                  disabled={isStreaming}
+                  onClick={() => setShowReasoningMenu((p) => !p)}
+                  className={`flex items-center justify-center p-1.5 rounded-md text-text-secondary hover:bg-surface-raised hover:text-text-primary transition-colors ${
+                    isStreaming ? "opacity-50 cursor-not-allowed" : ""
+                  } ${showReasoningMenu ? "bg-surface-raised text-text-primary" : ""}`}
+                  title={t("composer.reasoningLabel") || "Reasoning Effort"}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z" />
+                    <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z" />
+                  </svg>
+                  {reasoningEffort && (
+                    <span className="ml-1 text-[10px] uppercase font-bold tracking-wider hidden sm:block">
+                      {reasoningEffort.charAt(0)}
+                    </span>
+                  )}
+                </button>
+                {showReasoningMenu && (
+                  <div className="absolute bottom-full right-0 mb-2 w-32 bg-surface border border-border rounded-lg shadow-dropdown overflow-hidden animate-fade-in z-50">
+                    {(["low", "medium", "high"] as const).map((level) => (
+                      <button
+                        key={level}
+                        type="button"
+                        onClick={() => {
+                          onReasoningChange?.(level);
+                          setShowReasoningMenu(false);
+                        }}
+                        className={`w-full text-left px-3 py-2 text-sm transition-colors ${
+                          reasoningEffort === level
+                            ? "bg-surface-raised text-accent font-medium"
+                            : "text-text-primary hover:bg-surface-raised"
+                        }`}
+                      >
+                        {level.charAt(0).toUpperCase() + level.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             {isStreaming ? (
               <button
                 type="button"

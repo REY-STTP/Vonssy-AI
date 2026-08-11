@@ -33,6 +33,7 @@ const id: Record<LocaleKeys, string> = {
   "composer.placeholder": "Kirim pesan...",
   "composer.stopLabel": "Hentikan pembuatan",
   "composer.sendLabel": "Kirim pesan",
+  "composer.reasoningLabel": "Tingkat Berpikir",
   "composer.messagesToday": "pesan hari ini",
   "composer.inputLabel": "Input pesan",
 
