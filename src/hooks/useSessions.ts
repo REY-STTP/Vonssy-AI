@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
+import { SIDEBAR_RECENT_SESSIONS_LIMIT } from "@/lib/constants";
 
 interface ChatSession {
   id: string;
@@ -15,11 +16,11 @@ export function useSessions() {
   const [isLoading, setIsLoading] = useState(true);
 
   /**
-   * Fetch all sessions for the current user.
+   * Fetch recent sessions for the sidebar (capped + pinned always included).
    */
   const fetchSessions = useCallback(async () => {
     try {
-      const res = await fetch("/api/sessions");
+      const res = await fetch(`/api/sessions?limit=${SIDEBAR_RECENT_SESSIONS_LIMIT}`);
       if (!res.ok) return;
       const data = await res.json();
       setSessions(data.sessions);

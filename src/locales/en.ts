@@ -12,6 +12,15 @@ const en = {
   "sidebar.open": "Open sidebar",
   "sidebar.options": "Session options",
   "sidebar.pinned": "Pinned",
+  "sidebar.allChats": "All chats",
+
+  // All Chats overlay
+  "allChats.title": "All Chats",
+  "allChats.search": "Search chats...",
+  "allChats.filterAll": "All",
+  "allChats.filterPinned": "Pinned",
+  "allChats.noResults": "No chats found",
+  "allChats.close": "Close",
 
   // ChatHeader
   "chatHeader.newChat": "New Chat",

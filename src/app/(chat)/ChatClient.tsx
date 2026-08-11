@@ -6,6 +6,7 @@ import ChatHeader from "@/components/chat/ChatHeader";
 import MessageThread from "@/components/chat/MessageThread";
 import Composer from "@/components/chat/Composer";
 import SettingsModal from "@/components/chat/SettingsModal";
+import AllChatsModal from "@/components/chat/AllChatsModal";
 import { useChat } from "@/hooks/useChat";
 import { useSessions } from "@/hooks/useSessions";
 import { useRateLimit } from "@/hooks/useRateLimit";
@@ -38,6 +39,7 @@ export default function ChatClient({ user }: ChatClientProps) {
   );
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isAllChatsOpen, setIsAllChatsOpen] = useState(false);
   const { t } = useLocale();
 
   useEffect(() => {
@@ -126,6 +128,18 @@ export default function ChatClient({ user }: ChatClientProps) {
     setIsSettingsOpen(true);
   }, []);
 
+  const handleOpenAllChats = useCallback(() => {
+    setIsAllChatsOpen(true);
+  }, []);
+
+  const handleSelectSessionFromAllChats = useCallback(
+    (id: string) => {
+      setActiveSessionId(id);
+      setIsAllChatsOpen(false);
+    },
+    []
+  );
+
   return (
     <div className="flex h-dvh bg-bg overflow-hidden">
       {/* Sidebar */}
@@ -141,6 +155,7 @@ export default function ChatClient({ user }: ChatClientProps) {
         isCollapsed={isCollapsed}
         onToggleCollapse={handleToggleCollapse}
         onOpenSettings={handleOpenSettings}
+        onOpenAllChats={handleOpenAllChats}
       />
 
       {/* Main Area */}
@@ -221,6 +236,13 @@ export default function ChatClient({ user }: ChatClientProps) {
         onClose={() => setIsSettingsOpen(false)}
         user={user}
         quota={quota ? { remaining: quota.remaining, limit: quota.limit } : undefined}
+      />
+
+      {/* All Chats Modal */}
+      <AllChatsModal
+        isOpen={isAllChatsOpen}
+        onClose={() => setIsAllChatsOpen(false)}
+        onSelectSession={handleSelectSessionFromAllChats}
       />
     </div>
   );

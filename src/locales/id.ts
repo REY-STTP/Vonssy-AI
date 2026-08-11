@@ -14,6 +14,15 @@ const id: Record<LocaleKeys, string> = {
   "sidebar.open": "Buka bilah sisi",
   "sidebar.options": "Opsi sesi",
   "sidebar.pinned": "Disematkan",
+  "sidebar.allChats": "Semua chat",
+
+  // All Chats overlay
+  "allChats.title": "Semua Chat",
+  "allChats.search": "Cari chat...",
+  "allChats.filterAll": "Semua",
+  "allChats.filterPinned": "Disematkan",
+  "allChats.noResults": "Tidak ada chat ditemukan",
+  "allChats.close": "Tutup",
 
   // ChatHeader
   "chatHeader.newChat": "Chat Baru",
