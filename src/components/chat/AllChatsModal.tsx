@@ -30,6 +30,7 @@ export default function AllChatsModal({
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  const [menuFlipUp, setMenuFlipUp] = useState(false);
   const { t } = useLocale();
 
   const {
@@ -373,7 +374,15 @@ export default function AllChatsModal({
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setMenuOpenId(menuOpenId === session.id ? null : session.id);
+                                if (menuOpenId === session.id) {
+                                  setMenuOpenId(null);
+                                } else {
+                                  const btn = e.currentTarget;
+                                  const rect = btn.getBoundingClientRect();
+                                  const spaceBelow = window.innerHeight - rect.bottom;
+                                  setMenuFlipUp(spaceBelow < 150);
+                                  setMenuOpenId(session.id);
+                                }
                               }}
                               className="text-text-secondary hover:text-text-primary px-1 py-0.5 text-sm transition-colors"
                               aria-label={t("sidebar.options")}
@@ -382,7 +391,7 @@ export default function AllChatsModal({
                             </button>
 
                             {menuOpenId === session.id && (
-                              <div className="absolute right-0 top-6 z-50 bg-surface border border-border rounded-lg shadow-soft min-w-[160px] overflow-hidden">
+                              <div className={`absolute right-0 ${menuFlipUp ? 'bottom-6' : 'top-6'} z-50 bg-surface border border-border rounded-lg shadow-soft min-w-[160px] overflow-hidden`}>
                                 <button
                                   type="button"
                                   onClick={(e) => { e.stopPropagation(); handleStartRename(session); setMenuOpenId(null); }}
