@@ -59,6 +59,7 @@ const en = {
   "profile.preferredName": "Preferred name",
   "profile.preferredNamePlaceholder": "Your name",
   "profile.dateOfBirth": "Date of birth",
+  "profile.datePicker": "Show date picker",
   "profile.email": "Email",
   "profile.signedInWith": "Signed in with",
   "profile.memberSince": "Member since",

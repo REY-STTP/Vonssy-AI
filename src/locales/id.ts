@@ -61,6 +61,7 @@ const id: Record<LocaleKeys, string> = {
   "profile.preferredName": "Nama panggilan",
   "profile.preferredNamePlaceholder": "Nama Anda",
   "profile.dateOfBirth": "Tanggal lahir",
+  "profile.datePicker": "Tampilkan pemilih tanggal",
   "profile.email": "Email",
   "profile.signedInWith": "Masuk dengan",
   "profile.memberSince": "Anggota sejak",
