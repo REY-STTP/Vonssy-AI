@@ -64,6 +64,17 @@
     outline-style: solid;
   }
 
+  input[type="date"] {
+    text-align: right !important;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+  }
+
+  input[type="date"]::-webkit-date-and-time-value {
+    text-align: right !important;
+  }
+
   ::-webkit-scrollbar {
     width: 6px;
     height: 6px;

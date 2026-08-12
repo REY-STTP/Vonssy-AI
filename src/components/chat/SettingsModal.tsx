@@ -554,7 +554,8 @@ export default function SettingsModal({ isOpen, onClose, user, quota }: Settings
                 }}
                 max={new Date().toISOString().split("T")[0]}
                 min="1900-01-01"
-                className="bg-surface-raised border border-border rounded-lg text-[13px] font-medium text-text-primary py-1.5 pl-2.5 pr-8 text-right w-full focus:border-accent focus:outline-none transition-colors appearance-none [&::-webkit-date-and-time-value]:text-right [&::-webkit-calendar-picker-indicator]:hidden"
+                className="bg-surface-raised border border-border rounded-lg text-[13px] font-medium text-text-primary py-1.5 pl-2.5 pr-8 w-full focus:border-accent focus:outline-none transition-colors appearance-none [&::-webkit-date-and-time-value]:text-right [&::-webkit-calendar-picker-indicator]:hidden"
+                style={{ textAlign: 'right' }}
               />
               <button 
                 type="button"
