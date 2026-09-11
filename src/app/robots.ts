@@ -5,15 +5,32 @@ const SITE_URL =
 
 /**
  * F2: explicit crawler policy. Chat + API are private; only the
- * login gate, about page, and machine-readable files are crawlable.
- * Icon/manifest/OG assets must stay crawlable for SERP favicons.
+ * login gate, public docs, and machine-readable files are crawlable.
+ * Icon/manifest/OG/sitemap assets must stay crawlable (a bare
+ * `Disallow: /` would prefix-block them, including /sitemap.xml).
  */
+const PUBLIC_PATHS = [
+  "/login",
+  "/about",
+  "/privacy",
+  "/terms",
+  "/llms.txt",
+  "/sitemap.xml",
+  "/robots.txt",
+  "/favicon.ico",
+  "/icon.svg",
+  "/apple-icon.png",
+  "/manifest.webmanifest",
+  "/og-image.png",
+  "/icons/",
+];
+
 export default function robots(): MetadataRoute.Robots {
   return {
     rules: [
       {
         userAgent: "*",
-        allow: ["/login", "/about", "/privacy", "/terms", "/llms.txt"],
+        allow: PUBLIC_PATHS,
         disallow: ["/", "/api/"],
       },
       {
@@ -24,7 +41,7 @@ export default function robots(): MetadataRoute.Robots {
           "CCBot",
           "Bytespider",
         ],
-        allow: ["/login", "/about", "/privacy", "/terms", "/llms.txt"],
+        allow: PUBLIC_PATHS,
         disallow: ["/", "/api/"],
       },
     ],
