@@ -40,7 +40,7 @@ const softwareJsonLd = {
   name: "VonssyAI",
   applicationCategory: "DeveloperApplication",
   operatingSystem: "Web",
-  offers: { "@type": "Offer", price: "0" },
+  offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
   description:
     "BYOK multi-model chat — bring your own OpenAI-compatible keys.",
 };
