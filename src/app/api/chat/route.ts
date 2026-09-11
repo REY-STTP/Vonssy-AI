@@ -1,26 +1,26 @@
 import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db/client";
-import { messages as messagesTable, chatSessions, usageLogs, users, accounts } from "@/lib/db/schema";
-import { getProvider, isValidGateway, getModelEntry } from "@/lib/ai-providers";
-import { checkRateLimit, incrementRateLimit } from "@/lib/rate-limit";
-import { computeIdentityHash, computeIpHash, getClientIp } from "@/lib/quota-hash";
+import { messages as messagesTable, chatSessions, usageLogs, users, userAiModels } from "@/lib/db/schema";
+import { OpenAICompatibleGateway } from "@/lib/ai-providers/gateway-client";
+import { decryptApiKey } from "@/lib/crypto";
+import { assertBaseUrlAllowed } from "@/lib/ssrf-guard";
 import { eq, and, gt, asc, ne } from "drizzle-orm";
 import type { TokenUsage } from "@/lib/ai-providers/types";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 /**
- * POST /api/chat — Streaming chat endpoint.
+ * POST /api/chat — BYOK streaming chat endpoint.
  *
- * Pipeline per Section 4:
+ * Pipeline:
  * 1. Auth check (server-side, not middleware-only — CVE-2025-29927)
- * 2. Input validation
- * 3. Rate limit check (short-circuit before gateway call)
- * 4. Gateway call with SSE streaming
+ * 2. Load + ownership-check user's model config, decrypt key
+ * 3. Input validation
+ * 4. Upstream call with SSE streaming
  * 5. Usage logging on completion
- * 6. Rate limit increment on success
  */
 export async function POST(request: NextRequest) {
-  // ── 1. Auth Check ─────────────────────────────────────────
   const session = await auth();
   if (!session?.user?.id) {
     return new Response(
@@ -30,56 +30,33 @@ export async function POST(request: NextRequest) {
   }
   const userId = session.user.id;
 
-  // ── Resolve OAuth identity for quota enforcement ──────────
-  const [accountData] = await db
-    .select({
-      provider: accounts.provider,
-      providerAccountId: accounts.providerAccountId,
-    })
-    .from(accounts)
-    .where(eq(accounts.userId, userId))
-    .limit(1);
-
-  if (!accountData) {
-    return new Response(
-      JSON.stringify({ error: "No linked OAuth account found." }),
-      { status: 403, headers: { "Content-Type": "application/json" } }
-    );
-  }
-
-  const identityHash = computeIdentityHash(accountData.provider, accountData.providerAccountId);
-  const clientIp = getClientIp(request.headers);
-  const ipHash = computeIpHash(clientIp);
-
   // Fetch user's preferred name and DOB for AI personalization
   let displayName: string | null = null;
   let formattedDob: string | null = null;
-  
+
   const [userData] = await db
-    .select({ 
-      preferredName: users.preferredName, 
+    .select({
+      preferredName: users.preferredName,
       name: users.name,
-      dateOfBirth: users.dateOfBirth 
+      dateOfBirth: users.dateOfBirth,
     })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
-    
+
   if (userData) {
     displayName = userData.preferredName ?? userData.name ?? null;
     if (userData.dateOfBirth) {
       formattedDob = new Date(userData.dateOfBirth).toLocaleDateString("en-US", {
         day: "numeric",
         month: "long",
-        year: "numeric"
+        year: "numeric",
       });
     }
   }
 
-  // ── 2. Input Validation ───────────────────────────────────
   let body: {
-    gateway: string;
-    model: string;
+    modelConfigId: string;
     messages: Array<{ role: string; content: string }>;
     chatSessionId?: string;
     truncatePointMessageId?: string;
@@ -98,48 +75,66 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { gateway, model, messages: chatMessages, chatSessionId } = body;
+  const { modelConfigId, messages: chatMessages, chatSessionId } = body;
 
-  if (!gateway || !model || !chatMessages?.length) {
+  if (!modelConfigId || !chatMessages?.length) {
     return new Response(
       JSON.stringify({
-        error: "Missing required fields: gateway, model, messages.",
+        error: "Missing required fields: modelConfigId, messages.",
       }),
       { status: 400, headers: { "Content-Type": "application/json" } }
     );
   }
 
-  if (!isValidGateway(gateway)) {
+  if (!UUID_RE.test(modelConfigId)) {
     return new Response(
-      JSON.stringify({ error: `Unknown gateway: ${gateway}` }),
+      JSON.stringify({ error: "Unknown model configuration." }),
+      { status: 404, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  const [modelConfig] = await db
+    .select()
+    .from(userAiModels)
+    .where(and(eq(userAiModels.id, modelConfigId), eq(userAiModels.userId, userId)))
+    .limit(1);
+
+  if (!modelConfig) {
+    return new Response(
+      JSON.stringify({ error: "Model configuration not found." }),
+      { status: 404, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  let apiKey: string;
+  try {
+    apiKey = decryptApiKey(modelConfig.apiKeyEncrypted);
+  } catch {
+    return new Response(
+      JSON.stringify({ error: "Stored API key is corrupted. Please save it again in Settings." }),
       { status: 400, headers: { "Content-Type": "application/json" } }
     );
   }
 
-  // ── 3. Rate Limit Check ───────────────────────────────────
-  const rateLimitResult = await checkRateLimit(identityHash, ipHash, gateway);
-  if (!rateLimitResult.allowed) {
+  try {
+    await assertBaseUrlAllowed(modelConfig.baseUrl);
+  } catch (err) {
     return new Response(
-      JSON.stringify({
-        error: rateLimitResult.error,
-        remaining: rateLimitResult.remaining,
-        limit: rateLimitResult.limit,
-        resetAt: rateLimitResult.resetAt,
-      }),
-      { status: 429, headers: { "Content-Type": "application/json" } }
+      JSON.stringify({ error: err instanceof Error ? err.message : "Blocked host." }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
     );
   }
 
-  // ── 4. Gateway Call with SSE Streaming ────────────────────
+  const providerLabel = modelConfig.label;
+  const modelId = modelConfig.model;
+
   const startTime = Date.now();
   const encoder = new TextEncoder();
 
-  // Create or use existing chat session
   let sessionId = chatSessionId;
   let truncatePoint: Date | null = null;
 
   if (!sessionId) {
-    // Auto-create a new chat session
     const firstMessage = chatMessages.find((m) => m.role === "user")?.content ?? "New Chat";
     const title =
       firstMessage.length > 60
@@ -151,14 +146,13 @@ export async function POST(request: NextRequest) {
       .values({
         userId,
         title,
-        modelProvider: `${gateway}/${model}`,
+        modelProvider: `${providerLabel}/${modelId}`,
       })
       .returning({ id: chatSessions.id });
 
     sessionId = newSession.id;
   } else if (body.truncatePointMessageId) {
-    // Validate that it's a real UUID (not a temp ID from the client)
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(body.truncatePointMessageId);
+    const isUuid = UUID_RE.test(body.truncatePointMessageId);
     if (!isUuid) {
       return new Response(
         JSON.stringify({ error: "Please wait a moment for the chat to sync before editing." }),
@@ -166,7 +160,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate truncation point
     const [existingMsg] = await db
       .select({ createdAt: messagesTable.createdAt })
       .from(messagesTable)
@@ -187,7 +180,6 @@ export async function POST(request: NextRequest) {
     truncatePoint = existingMsg.createdAt;
   }
 
-  // Persist the user message if it's not a truncation/edit
   const userMsg = chatMessages[chatMessages.length - 1];
   if (!body.truncatePointMessageId) {
     await db
@@ -199,10 +191,9 @@ export async function POST(request: NextRequest) {
       });
   }
 
-  // Update session timestamp
   await db
     .update(chatSessions)
-    .set({ updatedAt: new Date(), modelProvider: `${gateway}/${model}` })
+    .set({ updatedAt: new Date(), modelProvider: `${providerLabel}/${modelId}` })
     .where(eq(chatSessions.id, sessionId));
 
   const stream = new ReadableStream({
@@ -211,7 +202,6 @@ export async function POST(request: NextRequest) {
       let tokenUsage: TokenUsage | undefined;
       let hasError = false;
 
-      // Send the session ID first so the client can track it
       controller.enqueue(
         encoder.encode(
           `data: ${JSON.stringify({ type: "session", sessionId })}\n\n`
@@ -219,16 +209,18 @@ export async function POST(request: NextRequest) {
       );
 
       try {
-        const provider = getProvider(gateway);
+        const provider = new OpenAICompatibleGateway({
+          name: providerLabel,
+          baseURL: modelConfig.baseUrl,
+          apiKey,
+        });
 
-        // Build messages array with optional system-level name instruction
         const messagesForProvider: Array<{ role: "user" | "assistant" | "system"; content: string }> =
           chatMessages.map((m) => ({
             role: m.role as "user" | "assistant" | "system",
             content: m.content,
           }));
 
-        // Inject personalization context as system instruction (server-side only, can't be spoofed)
         if (displayName || formattedDob) {
           const parts = [];
           if (displayName) parts.push(`The user's preferred name is "${displayName}".`);
@@ -239,13 +231,11 @@ export async function POST(request: NextRequest) {
 
           const existingSystemIdx = messagesForProvider.findIndex((m) => m.role === "system");
           if (existingSystemIdx >= 0) {
-            // Merge into existing system message
             messagesForProvider[existingSystemIdx] = {
               ...messagesForProvider[existingSystemIdx],
               content: personalizationInstruction + "\n\n" + messagesForProvider[existingSystemIdx].content,
             };
           } else {
-            // Prepend as new system message
             messagesForProvider.unshift({
               role: "system",
               content: personalizationInstruction,
@@ -254,7 +244,7 @@ export async function POST(request: NextRequest) {
         }
 
         const chatStream = provider.streamChat({
-          model,
+          model: modelId,
           messages: messagesForProvider,
           temperature: body.temperature,
           maxTokens: body.maxTokens,
@@ -274,61 +264,9 @@ export async function POST(request: NextRequest) {
             );
           } else if (chunk.type === "error") {
             hasError = true;
-
-            // If rate limited by upstream, try fallback
-            if (chunk.isRateLimited) {
-              const catalogEntry = getModelEntry(gateway, model);
-              if (catalogEntry?.fallbackGateway && catalogEntry?.fallbackModel) {
-                // Notify client we're trying fallback
-                controller.enqueue(
-                  encoder.encode(
-                    `data: ${JSON.stringify({
-                      type: "text",
-                      content: "\n\n_Switching to fallback provider..._\n\n",
-                    })}\n\n`
-                  )
-                );
-
-                const fallbackProvider = getProvider(catalogEntry.fallbackGateway);
-                const fallbackStream = fallbackProvider.streamChat({
-                  model: catalogEntry.fallbackModel,
-                  messages: messagesForProvider,
-                  temperature: body.temperature,
-                  maxTokens: body.maxTokens,
-                });
-
-                for await (const fallbackChunk of fallbackStream) {
-                  if (fallbackChunk.type === "text" && fallbackChunk.content) {
-                    fullContent += fallbackChunk.content;
-                    hasError = false;
-                  }
-                  if (fallbackChunk.type === "done") {
-                    tokenUsage = fallbackChunk.usage;
-                    hasError = false;
-                  }
-                  controller.enqueue(
-                    encoder.encode(
-                      `data: ${JSON.stringify(fallbackChunk)}\n\n`
-                    )
-                  );
-                }
-              } else {
-                // No fallback configured — surface the error
-                controller.enqueue(
-                  encoder.encode(
-                    `data: ${JSON.stringify({
-                      type: "error",
-                      error:
-                        "This model is temporarily at capacity. Try selecting a different model.",
-                    })}\n\n`
-                  )
-                );
-              }
-            } else {
-              controller.enqueue(
-                encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`)
-              );
-            }
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`)
+            );
           }
         }
       } catch (err) {
@@ -342,12 +280,10 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // ── 5. Persist assistant message & log usage ────────
       const latencyMs = Date.now() - startTime;
 
       if (fullContent && !hasError) {
         if (body.truncatePointMessageId && truncatePoint) {
-          // 1. Delete all messages after truncation point
           await db.delete(messagesTable)
             .where(
               and(
@@ -357,23 +293,21 @@ export async function POST(request: NextRequest) {
               )
             );
 
-          // 2. If it was an edit, update the user message content
           if (body.editContent) {
             await db.update(messagesTable)
               .set({ content: body.editContent })
               .where(eq(messagesTable.id, body.truncatePointMessageId));
-              
-            // 3. Update session title if editing the first message
+
             const [firstMsg] = await db
               .select({ id: messagesTable.id })
               .from(messagesTable)
               .where(eq(messagesTable.chatSessionId, sessionId!))
               .orderBy(asc(messagesTable.createdAt))
               .limit(1);
-              
+
             if (firstMsg && firstMsg.id === body.truncatePointMessageId) {
-              const newTitle = body.editContent.length > 60 
-                ? body.editContent.substring(0, 57) + "..." 
+              const newTitle = body.editContent.length > 60
+                ? body.editContent.substring(0, 57) + "..."
                 : body.editContent;
               await db.update(chatSessions)
                 .set({ title: newTitle })
@@ -388,29 +322,27 @@ export async function POST(request: NextRequest) {
             chatSessionId: sessionId!,
             role: "assistant",
             content: fullContent,
-            provider: gateway,
-            model: model,
+            provider: providerLabel,
+            model: modelId,
           })
           .returning({ id: messagesTable.id });
 
-        // Log usage (independent from messages per Section 5)
         await db.insert(usageLogs).values({
           userId,
           messageId: savedAssistantMsg.id,
-          provider: gateway,
-          model: model,
+          provider: providerLabel,
+          model: modelId,
           promptTokens: tokenUsage?.promptTokens ?? 0,
           completionTokens: tokenUsage?.completionTokens ?? 0,
           latencyMs,
-          status: hasError ? "error" : "success",
+          status: "success",
         });
       } else {
-        // Log failed attempt even without content
         await db.insert(usageLogs).values({
           userId,
           messageId: null,
-          provider: gateway,
-          model: model,
+          provider: providerLabel,
+          model: modelId,
           promptTokens: 0,
           completionTokens: 0,
           latencyMs,
@@ -418,12 +350,6 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // ── 6. Increment rate limit on success ──────────────
-      if (!hasError && fullContent) {
-        await incrementRateLimit(identityHash, ipHash, gateway, model);
-      }
-
-      // Send the [DONE] sentinel and close
       controller.enqueue(encoder.encode("data: [DONE]\n\n"));
       controller.close();
     },

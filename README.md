@@ -1,6 +1,6 @@
 # Vonssy AI
 
-A multi-provider AI chatbot that lets you converse with various AI models — Claude, ChatGPT, Qwen, Grok, DeepSeek, Mercury — through one unified interface, powered by free-tier gateways.
+A BYOK AI chatbot — each user connects their own OpenAI-compatible endpoints (API URL + key + model) through one unified interface.
 
 Built by **Vonssy, the Heavenly Demon King**.
 
@@ -9,10 +9,10 @@ Built by **Vonssy, the Heavenly Demon King**.
 ## ✨ Features
 
 ### Core Chat
-- **Multi-Provider Gateway** — Route prompts to different AI backends (SeekAI, XKiro, Nara, Inception) through a single OpenAI-compatible interface.
-- **Model Selector** — Switch between 11 models (Claude Opus 4.7/4.8/5, Claude Fable 5, ChatGPT 5.5/5.6/5.6-sol, Qwen 3.8 Max, DeepSeek V4 Pro, Grok 4.5, Mercury 2) from a dropdown with provider-branded sigil icons.
+- **BYOK Multi-Provider** — Each user stores N custom configs (`label, baseUrl, apiKey, model`) via Settings → AI Gateways. Any OpenAI-compatible API works.
+- **Encrypted at rest** — API keys stored AES-256-GCM in `user_ai_models`; clients only ever see `****last4`.
 - **Real-time Streaming** — Server-Sent Events (SSE) stream AI responses token-by-token with live typing indicator.
-- **Automatic 429 Fallback** — If the primary gateway returns a rate-limit error, the system automatically retries with a configured fallback gateway/model.
+- **Test connection** — One-click non-streaming `POST {baseUrl}/chat/completions` check before chatting.
 - **Message Editing** — Edit any user message and regenerate the AI response from that point (truncation-based edit with DB cleanup).
 - **Regeneration** — Regenerate any AI response to get a different answer.
 - **Message Feedback** — Like/dislike individual AI responses, persisted to the database.
@@ -26,14 +26,9 @@ Built by **Vonssy, the Heavenly Demon King**.
 
 ### Authentication & Security
 - **Google & GitHub OAuth** — Dual provider sign-in via Auth.js (NextAuth v5) with Drizzle adapter for database sessions.
-- **Route Protection** — Next.js 16 proxy (Node.js runtime) redirects unauthenticated users. Every API route independently re-validates sessions server-side (CVE-2025-29927 mitigation).
-- **Identity Hashing** — OAuth identity (provider + account ID) is HMAC-hashed for privacy-preserving rate limit enforcement.
-
-### Rate Limiting
-- **3-Layer Quota System** — Global daily limit → Provider/model-specific limit → IP-level backstop (anti-abuse ceiling).
-- **Database-driven Config** — Limits are stored in `rate_limit_config` table, adjustable without code changes.
-- **Identity & IP Ledgers** — Separate ledgers track per-identity and per-IP daily usage with automatic midnight UTC reset.
-- **Real-time Quota Display** — Remaining messages shown in the chat UI, updated after each message.
+- **Route Protection** — Next.js 16 proxy (Node.js runtime) redirects unauthenticated users. Every API route independently re-validates sessions server-side (CVE-2025-29927 mitigation). If `NEXTAUTH_URL` is set, the proxy also enforces it as the canonical host (localhost exempt).
+- **Per-user ownership checks** — Every model config and chat session query is scoped `WHERE id + userId`; foreign IDs return 404, never 403-differentiated.
+- **SSRF guard** — User-supplied `baseUrl` is validated (https-only, block metadata/private IPs) before any server fetch.
 
 ### Personalization
 - **Preferred Name & Date of Birth** — Set in Settings; the AI uses these contextually via server-side system prompt injection (not client-spoofable).
@@ -119,13 +114,8 @@ See [`.env.example`](.env.example) for the full list. Key variables:
 | `AUTH_SECRET` | NextAuth secret (`openssl rand -base64 32`) |
 | `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | Google OAuth credentials |
 | `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` | GitHub OAuth credentials |
-| `GOROUTER_API_KEY` | Gorouter gateway key |
-| `TABITOKEN_API_KEY` | TabiToken gateway key |
-| `XKIRO_API_KEY` | XKiro gateway key |
-| `NARAROUTER_API_KEY` | NaraRouter gateway key |
-| `DAHL_API_KEY` | Dahl gateway key |
-| `INCEPTION_API_KEY` | Inception Labs gateway key |
-| `QUOTA_HASH_SECRET` | HMAC secret for identity/IP hashing in rate-limit ledgers |
+| `ENCRYPTION_SECRET` | AES-256-GCM key for user API keys (`openssl rand -base64 32`). Rotating invalidates stored keys. |
+| `ALLOW_PRIVATE_BASE_URL` | `true` to allow localhost/internal base URLs (dev only) |
 | `NEXTAUTH_URL` | App URL for Auth.js callbacks (default: `http://localhost:3000`) |
 
 ### Scripts
@@ -156,10 +146,9 @@ src/
 │   │   └── ChatClient.tsx      # Client orchestrator (sidebar, thread, composer)
 │   ├── api/
 │   │   ├── auth/[...nextauth]/ # NextAuth route handler
-│   │   ├── chat/               # SSE streaming endpoint + feedback
-│   │   ├── rate-limit/         # Quota status endpoint
+│   │   ├── chat/               # BYOK SSE streaming endpoint + feedback
 │   │   ├── sessions/           # CRUD for sessions + paginated "all" endpoint
-│   │   └── user/               # Profile, preferred-name, date-of-birth, avatar
+│   │   └── user/               # Profile, avatar + models CRUD + test
 │   ├── globals.css             # Design tokens, component classes, prose styles
 │   ├── layout.tsx              # Root layout (fonts, ThemeProvider, Toaster)
 │   └── not-found.tsx           # Custom 404 page
@@ -169,37 +158,37 @@ src/
 │   │   ├── Sidebar.tsx         # Collapsible sidebar with pin/rename/delete
 │   │   ├── ChatHeader.tsx      # Session title, model badge, kebab menu
 │   │   ├── MessageThread.tsx   # Message list with edit, regenerate, feedback
-│   │   ├── Composer.tsx        # Chat input with model selector
-│   │   ├── ModelDropdown.tsx   # Model picker with sigil icons
+│   │   ├── Composer.tsx        # Chat input with user-model selector
+│   │   ├── ModelDropdown.tsx   # User-model picker grouped by host
 │   │   ├── AllChatsModal.tsx   # Virtualized all-chats overlay
-│   │   ├── SettingsModal.tsx   # Settings (profile, appearance, data)
-│   │   ├── MarkdownRenderer.tsx # Markdown + syntax highlighting
-│   │   └── SigilIcons.tsx      # Provider brand icons
+│   │   ├── SettingsModal.tsx   # Settings (profile, AI gateways, appearance, data)
+│   │   └── MarkdownRenderer.tsx # Markdown + syntax highlighting
 │   ├── ThemeProvider.tsx       # next-themes wrapper
 │   └── UserAvatar.tsx          # OAuth photo or DiceBear avatar
 │
 ├── hooks/
-│   ├── useChat.ts              # Chat state, streaming, edit, regenerate
+│   ├── useChat.ts              # Chat state, streaming, edit, regenerate (BYOK)
 │   ├── useSessions.ts          # Session CRUD, pin, rename, delete
 │   ├── useAllChats.ts          # Paginated all-chats with search/filter
-│   ├── useRateLimit.ts         # Quota polling
+│   ├── useUserModels.ts        # User model configs CRUD + selection
 │   ├── useLocale.ts            # i18n hook (EN/ID)
 │   └── useReadingFont.ts       # Reading font preference
 │
 ├── lib/
 │   ├── ai-providers/
-│   │   ├── gateway-client.ts   # OpenAI SDK wrapper for any gateway
-│   │   ├── registry.ts         # Gateway configs + model catalog
+│   │   ├── gateway-client.ts   # Per-request OpenAI-compatible client (BYOK)
 │   │   ├── types.ts            # Shared types (AIProvider, TokenUsage)
 │   │   └── index.ts            # Public exports
 │   ├── db/
-│   │   ├── schema.ts           # Drizzle schema (users, sessions, messages, etc.)
+│   │   ├── schema.ts           # Drizzle schema (users, sessions, messages, user_ai_models, etc.)
 │   │   └── client.ts           # Drizzle client (postgres.js driver)
+│   ├── user-models/
+│   │   └── validation.ts       # Label/URL/key/model validation + masking
 │   ├── auth.ts                 # Auth.js full config (with DB adapter)
 │   ├── auth.config.ts          # Edge-compatible auth config (providers only)
 │   ├── constants.ts            # App-wide constants
-│   ├── quota-hash.ts           # HMAC hashing for identity/IP
-│   └── rate-limit.ts           # 3-layer rate limiting logic
+│   ├── crypto.ts               # AES-256-GCM encrypt/decrypt for user keys
+│   └── ssrf-guard.ts           # Base-URL allowlist for user endpoints
 │
 ├── locales/
 │   ├── en.ts                   # English translations
@@ -208,7 +197,7 @@ src/
 └── proxy.ts                    # Route protection (Next.js 16 proxy)
 
 db/migrations/                  # SQL migration files (Drizzle Kit)
-migrate.js                      # Migration runner script
+migrate.js                      # Migration runner (loads .env.local, runs files in order)
 ```
 
 ---
@@ -221,12 +210,10 @@ migrate.js                      # Migration runner script
 | `accounts` | OAuth account links (Google, GitHub) |
 | `sessions` | Auth.js session tokens |
 | `verification_tokens` | Email verification (Auth.js) |
-| `chat_sessions` | Chat sessions with title, pinned status, model provider |
-| `messages` | Chat messages with role, content, provider/model, feedback |
+| `chat_sessions` | Chat sessions with title, pinned status, model label |
+| `messages` | Chat messages with role, content, provider label/model snapshot, feedback |
 | `usage_logs` | Token usage tracking per message (prompt/completion tokens, latency) |
-| `rate_limit_config` | Configurable daily message limits (global + per-provider) |
-| `identity_quota_ledger` | Per-identity daily message counts (HMAC-hashed) |
-| `ip_quota_ledger` | Per-IP daily message + signup counts (anti-abuse) |
+| `user_ai_models` | Per-user BYOK configs: label, base_url, encrypted key + hint, model |
 
 ---
 
@@ -249,9 +236,10 @@ Pre-built component classes: `.card`, `.btn-primary`, `.btn-secondary`, `.btn-gh
 ## 🔒 Security Considerations
 
 - **Server-side auth on every API route** — Not relying solely on proxy/middleware (CVE-2025-29927 mitigation).
-- **API keys are server-only** — No `NEXT_PUBLIC_` prefix; keys never reach the browser.
+- **User keys encrypted at rest** — AES-256-GCM with `ENCRYPTION_SECRET`; API never returns full keys, only `****last4`.
+- **SSRF guard on custom endpoints** — `https`-only, metadata/private-IP blocking, DNS re-check, 15s timeout.
+- **Ownership checks** — Model configs scoped by `(id, userId)`; cross-user access returns 404.
 - **Personalization is server-injected** — Display name and DOB are injected into the system prompt server-side, preventing client spoofing.
-- **Identity hashing** — OAuth identities are HMAC-hashed before storage in quota ledgers.
 - **UUID validation** — API endpoints validate UUID format before database queries to prevent PostgreSQL injection errors.
 
 ---

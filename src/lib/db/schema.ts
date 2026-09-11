@@ -143,54 +143,23 @@ export const usageLogs = pgTable(
   ]
 );
 
-export const rateLimitConfig = pgTable(
-  "rate_limit_config",
+export const userAiModels = pgTable(
+  "user_ai_models",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    provider: text("provider").notNull(),
-    model: text("model"),
-    dailyMessageLimit: integer("daily_message_limit").notNull().default(25),
-    isActive: boolean("is_active").default(true),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    label: text("label").notNull(),
+    baseUrl: text("base_url").notNull(),
+    apiKeyEncrypted: text("api_key_encrypted").notNull(),
+    apiKeyHint: text("api_key_hint").notNull(),
+    model: text("model").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
   },
   (table) => [
-    uniqueIndex("rate_limit_config_provider_model_unique").on(
-      table.provider,
-      table.model
-    ),
-  ]
-);
-
-export const identityQuotaLedger = pgTable(
-  "identity_quota_ledger",
-  {
-    identityHash: text("identity_hash").notNull(),
-    provider: text("provider").notNull(),
-    model: text("model").notNull().default(""),
-    date: date("date").notNull().defaultNow(),
-    messageCount: integer("message_count").default(0),
-  },
-  (table) => [
-    uniqueIndex("identity_quota_ledger_pk").on(
-      table.identityHash,
-      table.provider,
-      table.model,
-      table.date
-    ),
-    index("idx_identity_ledger_date").on(table.identityHash, table.date),
-  ]
-);
-
-export const ipQuotaLedger = pgTable(
-  "ip_quota_ledger",
-  {
-    ipHash: text("ip_hash").notNull(),
-    date: date("date").notNull().defaultNow(),
-    messageCount: integer("message_count").default(0),
-    signupCount: integer("signup_count").default(0),
-  },
-  (table) => [
-    uniqueIndex("ip_quota_ledger_pk").on(table.ipHash, table.date),
+    index("idx_user_ai_models_user").on(table.userId, table.updatedAt),
   ]
 );
 

@@ -7,8 +7,11 @@ import { useTheme } from "next-themes";
 import { useReadingFont, type ReadingFont } from "@/hooks/useReadingFont";
 import { useLocale, type Locale } from "@/hooks/useLocale";
 import UserAvatar, { generateAvatarUri } from "@/components/UserAvatar";
+import type { useUserModels } from "@/hooks/useUserModels";
 
 /* ── Types ─────────────────────────────────────────────────── */
+
+export type SettingsTab = "profile" | "ai-models" | "appearance" | "data";
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -25,10 +28,11 @@ interface SettingsModalProps {
     avatarStyle?: string | null;
     avatarSeed?: string | null;
   };
-  quota?: { remaining: number; limit: number } | null;
+  initialTab?: SettingsTab;
+  userModels: ReturnType<typeof useUserModels>;
 }
 
-type SubMenu = "profile" | "appearance" | "data";
+type SubMenu = SettingsTab;
 
 /* ── Sub-menu nav items ────────────────────────────────────── */
 
@@ -36,6 +40,11 @@ const NAV_ICONS: Record<SubMenu, React.ReactNode> = {
   profile: (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
+    </svg>
+  ),
+  "ai-models": (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2v4" /><path d="M12 18v4" /><path d="M4.9 4.9l2.8 2.8" /><path d="M16.3 16.3l2.8 2.8" /><path d="M2 12h4" /><path d="M18 12h4" /><path d="M4.9 19.1l2.8-2.8" /><path d="M16.3 7.7l2.8-2.8" />
     </svg>
   ),
   appearance: (
@@ -73,11 +82,230 @@ function ProviderIcon({ provider }: { provider: string }) {
   return null;
 }
 
+/* ── AI Models Tab (BYOK) ──────────────────────────────────── */
+
+function AiModelsTab({ userModels }: { userModels: ReturnType<typeof useUserModels> }) {
+  const { t } = useLocale();
+  const { models, isLoading, create, update, remove, test } = userModels;
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [label, setLabel] = useState("");
+  const [baseUrl, setBaseUrl] = useState("");
+  const [apiKey, setApiKey] = useState("");
+  const [showKey, setShowKey] = useState(false);
+  const [modelId, setModelId] = useState("");
+  const [formError, setFormError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [testingId, setTestingId] = useState<string | null>(null);
+  const [testMsg, setTestMsg] = useState<{ id: string; ok: boolean; text: string } | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  const openAdd = () => {
+    setEditingId(null);
+    setLabel("");
+    setBaseUrl("");
+    setApiKey("");
+    setModelId("");
+    setFormError(null);
+    setShowForm(true);
+  };
+
+  const openEdit = (m: { id: string; label: string; baseUrl: string; model: string }) => {
+    setEditingId(m.id);
+    setDeleteId(null);
+    setTestMsg(null);
+    setLabel(m.label);
+    setBaseUrl(m.baseUrl);
+    setApiKey("");
+    setModelId(m.model);
+    setFormError(null);
+    setShowForm(true);
+  };
+
+  const closeForm = () => {
+    setShowForm(false);
+    setEditingId(null);
+    setApiKey("");
+    setFormError(null);
+  };
+
+  const handleSave = async () => {
+    setFormError(null);
+    if (!label.trim() || !baseUrl.trim() || !modelId.trim()) {
+      setFormError("Label, API URL, and Model ID are required.");
+      return;
+    }
+    if (!editingId && !apiKey) {
+      setFormError("API key is required.");
+      return;
+    }
+    setSaving(true);
+    try {
+      if (editingId) {
+        await update(editingId, {
+          label: label.trim(),
+          baseUrl: baseUrl.trim(),
+          model: modelId.trim(),
+          ...(apiKey ? { apiKey } : {}),
+        });
+      } else {
+        await create({ label: label.trim(), baseUrl: baseUrl.trim(), apiKey, model: modelId.trim() });
+      }
+      setShowForm(false);
+      setEditingId(null);
+      setApiKey("");
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : "Save failed.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleTest = async (id: string) => {
+    setTestingId(id);
+    setTestMsg(null);
+    try {
+      const sample = await test(id);
+      setTestMsg({ id, ok: true, text: `${t("models.testOk")}: ${sample}` });
+    } catch (err) {
+      setTestMsg({ id, ok: false, text: err instanceof Error ? err.message : t("models.testFail") });
+    } finally {
+      setTestingId(null);
+    }
+  };
+
+  const formFields = (
+    <>
+      <div>
+        <label className="text-[12px] font-medium text-text-secondary">{t("models.label")}</label>
+        <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder={t("models.labelPlaceholder")} maxLength={80} className="input-base mt-1 w-full text-sm" />
+      </div>
+      <div>
+        <label className="text-[12px] font-medium text-text-secondary">{t("models.baseUrl")}</label>
+        <input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder={t("models.baseUrlPlaceholder")} inputMode="url" className="input-base mt-1 w-full text-sm font-mono" />
+        <p className="text-[11px] text-text-secondary mt-1">{t("models.baseUrlHelp")}</p>
+      </div>
+      <div>
+        <label className="text-[12px] font-medium text-text-secondary">{t("models.apiKey")}</label>
+        <div className="flex gap-2 mt-1">
+          <input value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder={editingId ? "••••" : t("models.apiKeyPlaceholder")} type={showKey ? "text" : "password"} autoComplete="off" className="input-base w-full text-sm font-mono" />
+          <button type="button" onClick={() => setShowKey((v) => !v)} className="btn-ghost text-[12px] px-2 shrink-0">
+            {showKey ? "Hide" : "Show"}
+          </button>
+        </div>
+        <p className="text-[11px] text-text-secondary mt-1">{t("models.apiKeyHelp")}</p>
+      </div>
+      <div>
+        <label className="text-[12px] font-medium text-text-secondary">{t("models.modelId")}</label>
+        <input value={modelId} onChange={(e) => setModelId(e.target.value)} placeholder={t("models.modelIdPlaceholder")} maxLength={200} className="input-base mt-1 w-full text-sm font-mono" />
+        <p className="text-[11px] text-text-secondary mt-1">{t("models.modelIdHelp")}</p>
+      </div>
+      {formError && <p className="text-[13px] text-danger break-words whitespace-pre-wrap">{formError}</p>}
+      <div className="flex gap-2 justify-end">
+        <button type="button" onClick={closeForm} className="btn-ghost text-sm px-4 py-1.5">
+          {t("models.cancel")}
+        </button>
+        <button type="button" onClick={handleSave} disabled={saving} className="btn-primary text-sm px-4 py-1.5 disabled:opacity-50">
+          {t("models.save")}
+        </button>
+      </div>
+    </>
+  );
+
+  return (
+    <div className="space-y-4">
+      <div className="text-[13px] font-semibold text-text-primary">{t("models.title")}</div>
+      <p className="text-[12px] text-text-secondary">{t("models.description")}</p>
+
+      {isLoading ? (
+        <p className="text-[13px] text-text-secondary">{t("models.loading")}</p>
+      ) : models.length === 0 && !showForm ? (
+        <div className="bg-surface-raised rounded-xl p-4 text-center space-y-3">
+          <p className="text-[13px] text-text-secondary">{t("models.empty")}</p>
+          <button type="button" onClick={openAdd} className="btn-primary text-sm px-4 py-1.5">
+            {t("models.addFirst")}
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {models.map((m) => {
+            const isEditing = showForm && editingId === m.id;
+            return (
+            <div key={m.id} className={`border rounded-xl p-3 space-y-2 min-w-0 overflow-hidden ${isEditing ? "border-accent bg-surface-raised/40" : "border-border"}`}>
+              {isEditing ? (
+                formFields
+              ) : (
+              <>
+              <div className="flex items-center justify-between gap-2 min-w-0">
+                <span className="text-sm font-medium text-text-primary truncate min-w-0" title={m.label}>{m.label}</span>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button type="button" onClick={() => handleTest(m.id)} disabled={testingId === m.id} className="btn-ghost text-[12px] px-2 py-1">
+                    {testingId === m.id ? t("models.testing") : t("models.test")}
+                  </button>
+                  <button type="button" onClick={() => openEdit(m)} className="btn-ghost text-[12px] px-2 py-1">
+                    {t("models.edit")}
+                  </button>
+                  <button type="button" onClick={() => setDeleteId(m.id)} className="btn-ghost text-[12px] px-2 py-1 text-danger">
+                    {t("models.delete")}
+                  </button>
+                </div>
+              </div>
+              <div className="grid grid-cols-[96px_1fr] gap-x-3 gap-y-1.5 text-[13px] items-center min-w-0">
+                <span className="text-text-secondary font-medium uppercase text-[11px] tracking-wider">Base URL</span>
+                <span className="text-[12px] text-text-primary font-mono truncate min-w-0" title={m.baseUrl}>{m.baseUrl}</span>
+                <span className="text-text-secondary font-medium uppercase text-[11px] tracking-wider">API Key</span>
+                <span className="text-[12px] text-text-primary font-mono truncate min-w-0" title={m.apiKeyHint}>{m.apiKeyHint}</span>
+                <span className="text-text-secondary font-medium uppercase text-[11px] tracking-wider">Model</span>
+                <span className="text-[12px] text-text-primary font-mono truncate min-w-0" title={m.model}>{m.model}</span>
+              </div>
+              {testMsg?.id === m.id && (
+                <p className={`text-[12px] leading-relaxed break-words whitespace-pre-wrap min-w-0 ${testMsg.ok ? "text-emerald-600 dark:text-emerald-400" : "text-danger"}`}>{testMsg.text}</p>
+              )}
+              {deleteId === m.id && (
+                <div className="flex items-center gap-2 pt-1">
+                  <span className="text-[12px] text-text-secondary">{t("models.deleteConfirm")}</span>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await remove(m.id);
+                      setDeleteId(null);
+                    }}
+                    className="btn-danger text-[12px] px-2 py-1"
+                  >
+                    {t("models.delete")}
+                  </button>
+                  <button type="button" onClick={() => setDeleteId(null)} className="btn-ghost text-[12px] px-2 py-1">
+                    {t("models.cancel")}
+                  </button>
+                </div>
+              )}
+              </>
+              )}
+            </div>
+            );
+          })}
+          {!showForm && (
+            <button type="button" onClick={openAdd} className="btn-secondary text-sm px-4 py-1.5 w-full justify-center">
+              {t("models.addNew")}
+            </button>
+          )}
+        </div>
+      )}
+
+      {showForm && !editingId && (
+        <div className="border border-border rounded-xl p-4 space-y-3 bg-surface-raised/40">
+          {formFields}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── Main Component ────────────────────────────────────────── */
 
-export default function SettingsModal({ isOpen, onClose, user, quota }: SettingsModalProps) {
+export default function SettingsModal({ isOpen, onClose, user, initialTab = "profile", userModels }: SettingsModalProps) {
   const router = useRouter();
-  const [activeMenu, setActiveMenu] = useState<SubMenu>("profile");
+  const [activeMenu, setActiveMenu] = useState<SubMenu>(initialTab);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -114,9 +342,14 @@ export default function SettingsModal({ isOpen, onClose, user, quota }: Settings
 
   const NAV_ITEMS: { id: SubMenu; label: string; icon: React.ReactNode }[] = [
     { id: "profile", label: t("settings.profile"), icon: NAV_ICONS.profile },
+    { id: "ai-models", label: t("settings.aiModels"), icon: NAV_ICONS["ai-models"] },
     { id: "appearance", label: t("settings.appearance"), icon: NAV_ICONS.appearance },
     { id: "data", label: t("settings.dataUsage"), icon: NAV_ICONS.data },
   ];
+
+  useEffect(() => {
+    if (isOpen) setActiveMenu(initialTab);
+  }, [isOpen, initialTab]);
 
   useEffect(() => {
     setMounted(true);
@@ -311,10 +544,10 @@ export default function SettingsModal({ isOpen, onClose, user, quota }: Settings
 
   if (!isOpen) return null;
 
-  const used = quota ? quota.limit - quota.remaining : 0;
-  const limit = quota?.limit ?? 25;
-  const remaining = quota?.remaining ?? 25;
-  const progressPct = limit > 0 ? Math.max(0, ((limit - remaining) / limit) * 100) : 0;
+  /* ── AI Models Sub-menu state ────────────────────────────── */
+  const modelsContent = (
+    <AiModelsTab userModels={userModels} />
+  );
 
   /* ── Profile Sub-menu ────────────────────────────────────── */
   const profileContent = (
@@ -756,27 +989,9 @@ export default function SettingsModal({ isOpen, onClose, user, quota }: Settings
     </div>
   );
 
-  /* ── Data & Usage Sub-menu ───────────────────────────────── */
+  /* ── Data Sub-menu ─────────────────────────────────────── */
   const dataContent = (
     <div className="space-y-4">
-      {/* Usage today */}
-      <div className="text-[13px] font-semibold text-text-primary">{t("data.usageToday")}</div>
-
-      <div className="bg-surface-raised rounded-xl p-4 space-y-3">
-        <div className="text-xl font-semibold text-text-primary">
-          {used} <span className="text-text-secondary font-normal text-base">/ {limit} {t("data.messages")}</span>
-        </div>
-        <div className="w-full h-1.5 bg-border rounded-full overflow-hidden">
-          <div
-            className={`h-full rounded-full transition-all duration-300 ${remaining <= 5 ? "bg-danger" : "bg-accent"}`}
-            style={{ width: `${progressPct}%` }}
-          />
-        </div>
-        <div className="text-[12px] text-text-secondary">{t("data.resetsAt")}</div>
-      </div>
-
-      <div className="border-t border-border" />
-
       <div className="text-[13px] font-semibold text-text-primary">{t("data.yourData")}</div>
 
       {/* Export */}
@@ -814,6 +1029,7 @@ export default function SettingsModal({ isOpen, onClose, user, quota }: Settings
 
   const contentMap: Record<SubMenu, React.ReactNode> = {
     profile: profileContent,
+    "ai-models": modelsContent,
     appearance: appearanceContent,
     data: dataContent,
   };

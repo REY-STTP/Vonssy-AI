@@ -1,43 +1,26 @@
 import OpenAI from "openai";
 import { AIProvider, ChatOptions, StreamChunk } from "./types";
 
-export interface GatewayConfig {
+export interface UserGatewayConfig {
   name: string;
   baseURL: string;
-  apiKeyEnvVar: string;
-  supportsReasoningEffort: boolean;
-  sigil: {
-    strokeLinecap?: "round" | "square" | "butt";
-    svgInnerHtml: string;
-  };
+  apiKey: string;
 }
 
 /**
- * Generic OpenAI-compatible gateway client.
- *
- * All three upstream gateways (xKiro, NaraRouter, Inception) share
- * the same wire format (OpenAI Chat Completions). This single class
- * handles all three — only the config object differs.
- *
- * Per spec Section 6: "Do not write a separate class per gateway
- * unless one of them diverges from OpenAI's wire format later."
+ * Generic OpenAI-compatible client instantiated per-request
+ * with the calling user's own baseURL + decrypted API key (BYOK).
+ * The plain key lives only in request memory, never in env or logs.
  */
 export class OpenAICompatibleGateway implements AIProvider {
   readonly name: string;
   private client: OpenAI;
-  private supportsReasoningEffort: boolean;
 
-  constructor(config: GatewayConfig) {
-    const apiKey = process.env[config.apiKeyEnvVar];
-    if (!apiKey) {
-      throw new Error(
-        `Missing env var ${config.apiKeyEnvVar}. ` +
-          `Set it in .env.local (server-only, never NEXT_PUBLIC_).`
-      );
-    }
+  constructor(config: UserGatewayConfig) {
+    if (!config.baseURL) throw new Error("baseURL is required.");
+    if (!config.apiKey) throw new Error("API key is required.");
     this.name = config.name;
-    this.supportsReasoningEffort = config.supportsReasoningEffort;
-    this.client = new OpenAI({ apiKey, baseURL: config.baseURL });
+    this.client = new OpenAI({ apiKey: config.apiKey, baseURL: config.baseURL });
   }
 
   async *streamChat(options: ChatOptions): AsyncGenerator<StreamChunk> {
@@ -51,8 +34,7 @@ export class OpenAICompatibleGateway implements AIProvider {
         stream_options: { include_usage: true },
       };
 
-      // Only pass reasoning_effort if the gateway supports it
-      if (this.supportsReasoningEffort && options.reasoningEffort) {
+      if (options.reasoningEffort) {
         requestBody.reasoning_effort = options.reasoningEffort;
       }
 
@@ -62,7 +44,6 @@ export class OpenAICompatibleGateway implements AIProvider {
       );
 
       for await (const chunk of stream as AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>) {
-        // Check for abort
         if (options.signal?.aborted) {
           return;
         }
@@ -84,7 +65,6 @@ export class OpenAICompatibleGateway implements AIProvider {
         }
       }
     } catch (error: unknown) {
-      // Detect 429 / rate_limited errors from upstream gateways
       const err = error as {
         status?: number;
         error?: { type?: string; message?: string; request_id?: string };
@@ -96,9 +76,6 @@ export class OpenAICompatibleGateway implements AIProvider {
         err.error?.type === "rate_limited" ||
         err.error?.type === "rate_limit_exceeded";
 
-      // Normalize error message from different gateway error envelopes:
-      // - NaraRouter: { error: { type, message, request_id } }
-      // - OpenAI SDK: { message }
       const message =
         err.error?.message ?? err.message ?? "Unknown gateway error";
 

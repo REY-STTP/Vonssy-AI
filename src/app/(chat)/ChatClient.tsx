@@ -9,8 +9,7 @@ import SettingsModal from "@/components/chat/SettingsModal";
 import AllChatsModal from "@/components/chat/AllChatsModal";
 import { useChat } from "@/hooks/useChat";
 import { useSessions } from "@/hooks/useSessions";
-import { useRateLimit } from "@/hooks/useRateLimit";
-import { getDefaultModel, ModelCatalogEntry } from "@/lib/ai-providers";
+import { useUserModels } from "@/hooks/useUserModels";
 import { useLocale } from "@/hooks/useLocale";
 
 interface ChatClientProps {
@@ -28,17 +27,11 @@ interface ChatClientProps {
   };
 }
 
-/**
- * Main chat client — orchestrates sidebar, message thread, and composer.
- * This is the core interactive component rendered after server-side auth.
- */
 export default function ChatClient({ user }: ChatClientProps) {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
-  const [selectedModel, setSelectedModel] = useState<ModelCatalogEntry>(
-    getDefaultModel()
-  );
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [settingsTab, setSettingsTab] = useState<"profile" | "ai-models" | "appearance" | "data">("profile");
   const [isAllChatsOpen, setIsAllChatsOpen] = useState(false);
   const [reasoningEffort, setReasoningEffort] = useState<"low" | "medium" | "high">("medium");
   const [fallbackSession, setFallbackSession] = useState<{ id: string, title: string | null, isPinned: boolean | null } | null>(null);
@@ -58,7 +51,8 @@ export default function ChatClient({ user }: ChatClientProps) {
     refreshSessions,
   } = useSessions();
 
-  const { quota, refreshQuota } = useRateLimit();
+  const userModels = useUserModels();
+  const { models, selected, select, isLoading: modelsLoading } = userModels;
 
   const {
     messages,
@@ -74,18 +68,16 @@ export default function ChatClient({ user }: ChatClientProps) {
     setFeedback,
   } = useChat({
     sessionId: activeSessionId,
-    selectedModel,
+    selectedModel: selected,
     onSessionCreated: (sessionId) => {
       setActiveSessionId(sessionId);
       refreshSessions();
     },
     onMessageComplete: () => {
-      refreshQuota();
       refreshSessions();
     },
   });
 
-  // Load messages when session changes
   useEffect(() => {
     if (activeSessionId) {
       loadMessages(activeSessionId);
@@ -103,7 +95,7 @@ export default function ChatClient({ user }: ChatClientProps) {
     (id: string) => {
       if (id === activeSessionId) return;
       setActiveSessionId(id);
-      setFallbackSession(null); // Cleared because it comes from sidebar
+      setFallbackSession(null);
     },
     [activeSessionId]
   );
@@ -127,7 +119,8 @@ export default function ChatClient({ user }: ChatClientProps) {
     });
   }, []);
 
-  const handleOpenSettings = useCallback(() => {
+  const handleOpenSettings = useCallback((tab: "profile" | "ai-models" | "appearance" | "data" = "profile") => {
+    setSettingsTab(tab);
     setIsSettingsOpen(true);
   }, []);
 
@@ -144,9 +137,26 @@ export default function ChatClient({ user }: ChatClientProps) {
     []
   );
 
+  const openManageModels = useCallback(() => handleOpenSettings("ai-models"), [handleOpenSettings]);
+
+  const composer = (key: string) => (
+    <Composer
+      key={key}
+      models={models}
+      selectedModel={selected}
+      onModelSelect={select}
+      onSend={sendMessage}
+      onStop={stopGeneration}
+      isStreaming={isStreaming}
+      isModelsLoading={modelsLoading}
+      onManageModels={openManageModels}
+      reasoningEffort={reasoningEffort}
+      onReasoningChange={setReasoningEffort}
+    />
+  );
+
   return (
     <div className="flex h-dvh bg-bg overflow-hidden">
-      {/* Sidebar */}
       <Sidebar
         sessions={sessions}
         activeSessionId={activeSessionId}
@@ -158,16 +168,12 @@ export default function ChatClient({ user }: ChatClientProps) {
         user={user}
         isCollapsed={isCollapsed}
         onToggleCollapse={handleToggleCollapse}
-        onOpenSettings={handleOpenSettings}
+        onOpenSettings={() => handleOpenSettings("profile")}
         onOpenAllChats={handleOpenAllChats}
       />
 
-      {/* Main Area */}
       <main className="flex-1 flex flex-col min-w-0 min-h-0 relative">
-
-
         <div className="flex-1 flex flex-col min-h-0 w-full">
-          {/* Chat Header — always visible */}
           {(() => {
             const activeSession = activeSessionId
               ? sessions.find(s => s.id === activeSessionId) || (fallbackSession?.id === activeSessionId ? fallbackSession : null)
@@ -195,7 +201,6 @@ export default function ChatClient({ user }: ChatClientProps) {
           })()}
 
           {messages.length === 0 && !streamingContent && !isStreaming ? (
-            /* ── Empty / Welcome State — centered greeting + composer ── */
             <div className="flex-1 flex flex-col items-center justify-start pt-[15vh] md:justify-center md:pt-0 px-4 pb-8">
               <div className="flex flex-col items-center text-center mb-8 animate-fade-in">
                 <h2 className="font-body font-medium text-2xl text-text-primary mb-2">
@@ -204,24 +209,23 @@ export default function ChatClient({ user }: ChatClientProps) {
                     : t("welcome.greetingAnon")}
                 </h2>
                 <p className="text-text-secondary text-base font-body max-w-md mt-2">
-                  {t("welcome.subtitle")}
+                  {models.length === 0 && !modelsLoading ? t("models.emptyWelcome") : t("welcome.subtitle")}
                 </p>
+                {models.length === 0 && !modelsLoading && (
+                  <button
+                    type="button"
+                    onClick={openManageModels}
+                    className="btn-primary text-sm px-4 py-2 mt-4"
+                  >
+                    {t("models.addFirst")}
+                  </button>
+                )}
               </div>
               <div className="w-full max-w-2xl">
-                <Composer
-                  selectedModel={selectedModel}
-                  onModelSelect={setSelectedModel}
-                  onSend={sendMessage}
-                  onStop={stopGeneration}
-                  isStreaming={isStreaming}
-                  quota={quota ? { remaining: quota.remaining, limit: quota.limit } : undefined}
-                  reasoningEffort={reasoningEffort}
-                  onReasoningChange={setReasoningEffort}
-                />
+                {composer("welcome")}
               </div>
             </div>
           ) : (
-            /* ── Active Chat — normal thread + bottom composer ── */
             <>
               <MessageThread
                 messages={messages}
@@ -233,30 +237,20 @@ export default function ChatClient({ user }: ChatClientProps) {
                 onFeedback={setFeedback}
                 displayName={user.preferredName || user.name}
               />
-              <Composer
-                selectedModel={selectedModel}
-                onModelSelect={setSelectedModel}
-                onSend={sendMessage}
-                onStop={stopGeneration}
-                isStreaming={isStreaming}
-                quota={quota ? { remaining: quota.remaining, limit: quota.limit } : undefined}
-                reasoningEffort={reasoningEffort}
-                onReasoningChange={setReasoningEffort}
-              />
+              {composer("thread")}
             </>
           )}
         </div>
       </main>
 
-      {/* Settings Modal */}
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         user={user}
-        quota={quota ? { remaining: quota.remaining, limit: quota.limit } : undefined}
+        initialTab={settingsTab}
+        userModels={userModels}
       />
 
-      {/* All Chats Modal */}
       <AllChatsModal
         isOpen={isAllChatsOpen}
         onClose={() => setIsAllChatsOpen(false)}
@@ -268,4 +262,3 @@ export default function ChatClient({ user }: ChatClientProps) {
     </div>
   );
 }
-

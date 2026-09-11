@@ -17,6 +17,30 @@ import { auth } from "@/lib/auth";
  * server-side via auth() from @/lib/auth.
  */
 export async function proxy(request: NextRequest) {
+  // ── Canonical host enforcement (NEXTAUTH_URL) ──────────
+  // If NEXTAUTH_URL=http://www.vonssy-ai.web.id is set and the request
+  // arrives on a different host (e.g. vercel.app, apex), redirect to
+  // the canonical host preserving path + query. Localhost is exempt
+  // so `npm run dev` keeps working.
+  const canonical = getCanonicalBase();
+  if (canonical) {
+    const reqHost = request.headers
+      .get("host")
+      ?.split(":")[0]
+      ?.toLowerCase();
+    const canonHost = canonical.hostname.toLowerCase();
+    const isLocalReq =
+      reqHost === "localhost" || reqHost === "127.0.0.1";
+    const isLocalCanon =
+      canonHost === "localhost" || canonHost === "127.0.0.1";
+    if (reqHost && reqHost !== canonHost && !isLocalReq && !isLocalCanon) {
+      const url = new URL(request.url);
+      url.protocol = canonical.protocol;
+      url.host = canonical.host;
+      return NextResponse.redirect(url);
+    }
+  }
+
   let isLoggedIn = false;
 
   try {
@@ -44,6 +68,16 @@ export async function proxy(request: NextRequest) {
   }
 
   return NextResponse.next();
+}
+
+function getCanonicalBase(): URL | null {
+  const raw = process.env.NEXTAUTH_URL || process.env.AUTH_URL;
+  if (!raw) return null;
+  try {
+    return new URL(raw);
+  } catch {
+    return null;
+  }
 }
 
 export const config = {

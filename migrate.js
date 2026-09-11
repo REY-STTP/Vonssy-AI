@@ -1,41 +1,71 @@
 const fs = require('fs');
+const path = require('path');
 const postgres = require('postgres');
+
+function loadEnvFile(file) {
+  if (!fs.existsSync(file)) return;
+  const content = fs.readFileSync(file, 'utf8');
+  for (const line of content.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const eq = trimmed.indexOf('=');
+    if (eq === -1) continue;
+    const key = trimmed.slice(0, eq).trim();
+    let val = trimmed.slice(eq + 1).trim();
+    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+      val = val.slice(1, -1);
+    }
+    if (!(key in process.env)) process.env[key] = val;
+  }
+}
+
+loadEnvFile(path.join(__dirname, '.env.local'));
+loadEnvFile(path.join(__dirname, '.env'));
 
 async function migrate() {
   const dns = require('dns');
   dns.setDefaultResultOrder('verbatim');
 
-  const connectionString = 'postgresql://postgres.vfqmdutxwuxilagjyqej:Rerey%40261203@aws-0-ap-northeast-2.pooler.supabase.com:6543/postgres';
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
+    console.error('DATABASE_URL environment variable is not set. See .env.example.');
+    process.exit(1);
+  }
   const sql = postgres(connectionString, { connect_timeout: 15 });
 
   try {
-    console.log('Reading migration file...');
-    let migration = fs.readFileSync('db/migrations/0006_add_avatar.sql', 'utf8');
-    
-    // Remove all single-line comments completely before splitting
-    migration = migration.replace(/--.*$/gm, '');
+    const dir = path.join(__dirname, 'db', 'migrations');
+    const files = fs.readdirSync(dir).filter((f) => f.endsWith('.sql')).sort();
+    console.log(`Found ${files.length} migration files...`);
 
-    const statements = migration
-      .split(';')
-      .map(s => s.trim())
-      .filter(s => s.length > 0);
+    for (const file of files) {
+      console.log(`\n--- ${file} ---`);
+      let migration = fs.readFileSync(path.join(dir, file), 'utf8');
 
-    console.log(`Executing ${statements.length} statements...`);
-    
-    for (const stmt of statements) {
-      if (stmt) {
+      // Remove all single-line comments completely before splitting
+      migration = migration.replace(/--.*$/gm, '');
+
+      const statements = migration
+        .split(';')
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
+
+      console.log(`Executing ${statements.length} statements...`);
+
+      for (const stmt of statements) {
         try {
           await sql.unsafe(stmt + ';');
         } catch (err) {
-          console.error('\nFAILED ON STATEMENT:\n' + stmt + '\n\nError:', err.message);
+          console.error(`\nFAILED IN ${file} ON STATEMENT:\n` + stmt + '\n\nError:', err.message);
           throw err;
         }
       }
     }
-    
-    console.log('Migration successful!');
+
+    console.log('\nAll migrations successful!');
   } catch (err) {
     console.error('Migration failed!');
+    process.exitCode = 1;
   } finally {
     await sql.end();
   }

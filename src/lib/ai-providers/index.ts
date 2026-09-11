@@ -6,12 +6,5 @@ export type {
   AIProvider,
 } from "./types";
 
-export {
-  getProvider,
-  isValidGateway,
-  MODEL_CATALOG,
-  getModelEntry,
-  getDefaultModel,
-} from "./registry";
-
-export type { GatewayId, ModelCatalogEntry } from "./registry";
+export { OpenAICompatibleGateway } from "./gateway-client";
+export type { UserGatewayConfig } from "./gateway-client";

@@ -305,8 +305,9 @@ export default function MessageThread({
                 <span className="inline-block w-2.5 h-2.5 ml-1 rounded-full bg-accent animate-pulse align-baseline" />
               </div>
             ) : (
-              <div className="flex items-center h-6">
+              <div className="flex items-center h-6 gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-accent animate-pulse" />
+                <span className="text-[13px] text-text-secondary animate-pulse">{t("message.thinking")}</span>
               </div>
             )}
           </div>

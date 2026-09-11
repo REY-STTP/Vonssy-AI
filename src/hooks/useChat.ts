@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef } from "react";
 import { toast } from "sonner";
-import { ModelCatalogEntry } from "@/lib/ai-providers";
+import type { UserModelConfig } from "./useUserModels";
 
 interface Message {
   id: string;
@@ -22,7 +22,7 @@ interface TokenUsage {
 
 interface UseChatOptions {
   sessionId: string | null;
-  selectedModel: ModelCatalogEntry;
+  selectedModel: UserModelConfig | null;
   onSessionCreated?: (sessionId: string) => void;
   onMessageComplete?: () => void;
 }
@@ -41,12 +41,8 @@ export function useChat({
   const abortControllerRef = useRef<AbortController | null>(null);
   const currentSessionIdRef = useRef<string | null>(sessionId);
 
-  // Keep session ID ref in sync
   currentSessionIdRef.current = sessionId;
 
-  /**
-   * Load messages for a session from the server.
-   */
   const loadMessages = useCallback(async (sid: string) => {
     try {
       const res = await fetch(`/api/sessions/${sid}`);
@@ -77,6 +73,10 @@ export function useChat({
 
   const sendMessage = useCallback(
     async (content: string, options?: SendMessageOptions) => {
+      if (!selectedModel) {
+        toast.error("Add a model first in Settings → AI Models.");
+        return;
+      }
       setStreamingContent("");
       setIsStreaming(true);
 
@@ -87,11 +87,9 @@ export function useChat({
       let apiMessages: Array<{ role: string; content: string }>;
 
       if (options?.truncateIndex !== undefined) {
-        // Truncate history for the API call
         const history = messages.slice(0, options.truncateIndex + 1);
         apiMessages = history.map((m) => ({ role: m.role, content: m.content }));
-        
-        // Optimistically update edited content in the UI
+
         if (options.editContent) {
           apiMessages[apiMessages.length - 1].content = options.editContent;
           setMessages((prev) => {
@@ -101,7 +99,6 @@ export function useChat({
           });
         }
       } else {
-        // Normal send: append user message optimistically
         const tempUserMsg: Message = {
           id: `temp-${Date.now()}`,
           role: "user",
@@ -124,8 +121,7 @@ export function useChat({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            gateway: selectedModel.gateway,
-            model: selectedModel.model,
+            modelConfigId: selectedModel.id,
             messages: apiMessages,
             chatSessionId: currentSessionIdRef.current,
             truncatePointMessageId: options?.truncatePointMessageId,
@@ -187,17 +183,16 @@ export function useChat({
           }
         }
 
-        // After streaming completes, finalize the message
         if (fullAssistantContent) {
           const assistantMsg: Message = {
             id: `assistant-${Date.now()}`,
             role: "assistant",
             content: fullAssistantContent,
-            provider: selectedModel.gateway,
+            provider: selectedModel.label,
             model: selectedModel.model,
             createdAt: new Date().toISOString(),
           };
-          
+
           setMessages((prev) => {
             const baseMessages = options?.truncateIndex !== undefined
               ? prev.slice(0, options.truncateIndex + 1)
@@ -222,7 +217,6 @@ export function useChat({
         abortControllerRef.current = null;
         onMessageComplete?.();
 
-        // Refetch in background to replace temp IDs with real UUIDs from DB
         if (currentSessionIdRef.current) {
           fetch(`/api/sessions/${currentSessionIdRef.current}`)
             .then((res) => res.json())
@@ -231,16 +225,13 @@ export function useChat({
                 setMessages(data.messages);
               }
             })
-            .catch(() => {}); // Ignore background refetch errors
+            .catch(() => {});
         }
       }
     },
     [messages, selectedModel, onSessionCreated, onMessageComplete]
   );
 
-  /**
-   * Stop the current generation.
-   */
   const stopGeneration = useCallback(() => {
     abortControllerRef.current?.abort();
   }, []);
@@ -267,7 +258,7 @@ export function useChat({
 
       const msgIndex = messages.findIndex((m) => m.id === messageId);
       if (msgIndex === -1) return;
-      
+
       const targetMessage = messages[msgIndex];
 
       if (targetMessage.role === "assistant") {
@@ -288,21 +279,14 @@ export function useChat({
     [messages, sendMessage]
   );
 
-  /**
-   * Clear all messages (for new chat).
-   */
   const clearMessages = useCallback(() => {
     setMessages([]);
     setStreamingContent("");
     setLastUsage(null);
   }, []);
 
-  /**
-   * Set feedback (like/dislike) on a message with optimistic update.
-   */
   const setFeedback = useCallback(
     async (messageId: string, feedback: "like" | "dislike" | null) => {
-      // Optimistic update
       setMessages((prev) =>
         prev.map((m) =>
           m.id === messageId ? { ...m, feedback } : m
@@ -317,7 +301,6 @@ export function useChat({
         });
         if (!res.ok) throw new Error();
       } catch {
-        // Rollback on error
         setMessages((prev) =>
           prev.map((m) =>
             m.id === messageId ? { ...m, feedback: m.feedback } : m

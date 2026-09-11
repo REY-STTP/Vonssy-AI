@@ -29,7 +29,6 @@ const en = {
 
   // Composer
   "composer.placeholder": "Send a message...",
-  "composer.messagesToday": "messages today",
   "composer.inputLabel": "Message input",
   "composer.sendLabel": "Send message",
   "composer.stopLabel": "Stop generating",
@@ -45,12 +44,14 @@ const en = {
   "message.like": "Like",
   "message.dislike": "Dislike",
   "message.scrollToBottom": "Scroll to bottom",
+  "message.thinking": "thinking...",
 
   // Settings
   "settings.title": "Settings",
   "settings.profile": "Profile",
+  "settings.aiModels": "AI Gateways",
   "settings.appearance": "Appearance",
-  "settings.dataUsage": "Data & Usage",
+  "settings.dataUsage": "Data",
   "settings.close": "Close settings",
   "settings.confirmDelete": "Confirm account deletion",
 
@@ -92,9 +93,6 @@ const en = {
   "appearance.langId": "Indonesia",
 
   // Settings — Data & Usage
-  "data.usageToday": "Usage today",
-  "data.messages": "messages",
-  "data.resetsAt": "Resets at 00:00 UTC.",
   "data.yourData": "Your data",
   "data.exportTitle": "Export chat history",
   "data.exportDesc": "Download all your conversations as a file",
@@ -109,7 +107,7 @@ const en = {
   "data.deleting": "Deleting…",
 
   // Login
-  "login.tagline": "Unleash the full spectrum of models. One unified interface.",
+  "login.tagline": "Bring your own keys. One unified interface.",
   "login.google": "Continue with Google",
   "login.github": "Continue with GitHub",
   "login.footer": "Built by Vonssy — Heavenly Demon King",
@@ -117,7 +115,39 @@ const en = {
   // Welcome / Empty state
   "welcome.greeting": "Hi {name}, how can I help you today?",
   "welcome.greetingAnon": "How can I help you today?",
-  "welcome.subtitle": "Select a model using the sigils below, then type your message.",
+  "welcome.subtitle": "Select your model above, then type your message.",
+
+  // AI Models (BYOK)
+  "models.title": "AI Gateways",
+  "models.description": "Add your own OpenAI-compatible endpoints. Keys are encrypted.",
+  "models.label": "Label",
+  "models.labelPlaceholder": "My GPT",
+  "models.baseUrl": "API URL",
+  "models.baseUrlPlaceholder": "https://api.openai.com/v1",
+  "models.baseUrlHelp": "Base URL of an OpenAI-compatible API, e.g. https://api.openai.com/v1",
+  "models.apiKey": "API key",
+  "models.apiKeyPlaceholder": "sk-...",
+  "models.apiKeyHelp": "Stored encrypted. Leave empty when editing to keep the current key.",
+  "models.modelId": "Model ID",
+  "models.modelIdPlaceholder": "gpt-4o-mini",
+  "models.modelIdHelp": "Model ID as sent to the API.",
+  "models.addFirst": "Add your first model",
+  "models.addNew": "Add model",
+  "models.edit": "Edit",
+  "models.delete": "Delete",
+  "models.deleteConfirm": "Delete this model?",
+  "models.save": "Save",
+  "models.cancel": "Cancel",
+  "models.test": "Test",
+  "models.testing": "Testing…",
+  "models.testOk": "Connection OK",
+  "models.testFail": "Connection failed",
+  "models.empty": "No models yet. Add one to start chatting.",
+  "models.emptyWelcome": "Add your own model to start chatting.",
+  "models.loading": "Loading models…",
+  "models.manage": "Manage gateways",
+  "models.needModel": "Add a model in Settings → AI Models to start…",
+  "models.selectModel": "Select model",
 
   // Not Found
   "notFound.code": "404",
@@ -126,12 +156,8 @@ const en = {
   "notFound.goHome": "Return to Chat",
 
   // Rate limit errors
-  "error.dailyLimit": "Daily message limit reached ({limit} messages/day). Resets tomorrow at midnight (UTC).",
   "error.rateLimit": "Too many requests. Please try again later.",
   "error.serverError": "An error occurred while connecting to the AI. Please try again.",
-
-  // Model Dropdown
-  "model.select": "Select model",
 
   // Code Blocks
   "code.copy": "Copy",
@@ -139,7 +165,8 @@ const en = {
   "code.copyLabel": "Copy code",
   "code.copiedLabel": "Copied",
 
-  "error.dailyLimitGeneric": "Daily message limit reached. Resets tomorrow at midnight (UTC).",
+  // Model Dropdown (legacy alias)
+  "model.select": "Select model",
 } as const;
 
 export type LocaleKeys = keyof typeof en;

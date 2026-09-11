@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db/client";
-import { users, chatSessions, messages } from "@/lib/db/schema";
+import { users, chatSessions, messages, userAiModels } from "@/lib/db/schema";
 import { eq, asc } from "drizzle-orm";
 
 /**
@@ -48,7 +48,17 @@ export async function GET() {
     })
   );
 
-  return new Response(JSON.stringify({ exportedAt: new Date().toISOString(), data: exportData }, null, 2), {
+  const modelConfigs = await db
+    .select({
+      label: userAiModels.label,
+      baseUrl: userAiModels.baseUrl,
+      model: userAiModels.model,
+    })
+    .from(userAiModels)
+    .where(eq(userAiModels.userId, userId))
+    .orderBy(asc(userAiModels.createdAt));
+
+  return new Response(JSON.stringify({ exportedAt: new Date().toISOString(), models: modelConfigs, data: exportData }, null, 2), {
     headers: {
       "Content-Type": "application/json",
       "Content-Disposition": `attachment; filename="vonssy-ai-export-${new Date().toISOString().split("T")[0]}.json"`,

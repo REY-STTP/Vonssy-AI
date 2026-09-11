@@ -1,7 +1,6 @@
 import type { LocaleKeys } from "./en";
 
 const id: Record<LocaleKeys, string> = {
-  // Sidebar
   "sidebar.newChat": "Chat Baru",
   "sidebar.noConversations": "Belum ada percakapan.",
   "sidebar.rename": "Ubah Nama",
@@ -15,29 +14,20 @@ const id: Record<LocaleKeys, string> = {
   "sidebar.options": "Opsi sesi",
   "sidebar.pinned": "Disematkan",
   "sidebar.allChats": "Semua chat",
-
-  // All Chats overlay
   "allChats.title": "Semua Chat",
   "allChats.search": "Cari chat...",
   "allChats.filterAll": "Semua",
   "allChats.filterPinned": "Disematkan",
   "allChats.noResults": "Tidak ada chat ditemukan",
   "allChats.close": "Tutup",
-
-  // ChatHeader
   "chatHeader.newChat": "Chat Baru",
   "chatHeader.renameChatLabel": "Ubah nama chat",
   "chatHeader.chatOptions": "Opsi chat",
-
-  // Composer
   "composer.placeholder": "Kirim pesan...",
-  "composer.stopLabel": "Hentikan pembuatan",
-  "composer.sendLabel": "Kirim pesan",
-  "composer.reasoningLabel": "Tingkat Berpikir",
-  "composer.messagesToday": "pesan hari ini",
   "composer.inputLabel": "Input pesan",
-
-  // MessageThread
+  "composer.sendLabel": "Kirim pesan",
+  "composer.stopLabel": "Hentikan pembuatan",
+  "composer.reasoningLabel": "Tingkat Berpikir",
   "message.cancel": "Batal",
   "message.save": "Simpan",
   "message.regenerate": "Buat ulang respons",
@@ -47,16 +37,14 @@ const id: Record<LocaleKeys, string> = {
   "message.like": "Suka",
   "message.dislike": "Tidak suka",
   "message.scrollToBottom": "Gulir ke bawah",
-
-  // Settings
+  "message.thinking": "berpikir...",
   "settings.title": "Pengaturan",
   "settings.profile": "Profil",
+  "settings.aiModels": "AI Gateways",
   "settings.appearance": "Tampilan",
-  "settings.dataUsage": "Data & Penggunaan",
+  "settings.dataUsage": "Data",
   "settings.close": "Tutup pengaturan",
   "settings.confirmDelete": "Konfirmasi hapus akun",
-
-  // Settings — Profile
   "profile.name": "Nama",
   "profile.preferredName": "Nama panggilan",
   "profile.preferredNamePlaceholder": "Nama Anda",
@@ -66,8 +54,6 @@ const id: Record<LocaleKeys, string> = {
   "profile.signedInWith": "Masuk dengan",
   "profile.memberSince": "Anggota sejak",
   "profile.signOut": "Keluar",
-
-  // Avatar Picker
   "avatar.changeAvatar": "Ubah avatar",
   "avatar.useProfilePhoto": "Gunakan foto profil",
   "avatar.generatedAvatar": "Avatar buatan",
@@ -77,8 +63,6 @@ const id: Record<LocaleKeys, string> = {
   "avatar.styleCroodles": "Croodles",
   "avatar.styleLorelei": "Lorelei",
   "avatar.styleNotionists": "Notionists",
-
-  // Settings — Appearance
   "appearance.theme": "Tema",
   "appearance.light": "Terang",
   "appearance.dark": "Gelap",
@@ -92,11 +76,6 @@ const id: Record<LocaleKeys, string> = {
   "appearance.language": "Bahasa",
   "appearance.langEn": "English",
   "appearance.langId": "Indonesia",
-
-  // Settings — Data & Usage
-  "data.usageToday": "Penggunaan hari ini",
-  "data.messages": "pesan",
-  "data.resetsAt": "Reset pukul 00:00 UTC.",
   "data.yourData": "Data Anda",
   "data.exportTitle": "Ekspor riwayat chat",
   "data.exportDesc": "Unduh semua percakapan Anda sebagai file",
@@ -109,38 +88,54 @@ const id: Record<LocaleKeys, string> = {
   "data.deleteConfirmDesc": "Ini akan menghapus akun dan semua riwayat chat Anda secara permanen. Tindakan ini tidak dapat dibatalkan.",
   "data.deleteConfirmBtn": "Hapus Akun Saya",
   "data.deleting": "Menghapus…",
-
-  // Login
-  "login.tagline": "Jelajahi berbagai model AI. Satu antarmuka terpadu.",
+  "login.tagline": "Bawa kunci API milikmu. Satu antarmuka terpadu.",
   "login.google": "Lanjutkan dengan Google",
   "login.github": "Lanjutkan dengan GitHub",
   "login.footer": "Dibuat oleh Vonssy — Heavenly Demon King",
-
-  // Welcome / Empty state
   "welcome.greeting": "Hai {name}, ada yang bisa saya bantu?",
   "welcome.greetingAnon": "Ada yang bisa saya bantu?",
-  "welcome.subtitle": "Pilih model menggunakan ikon di bawah, lalu ketik pesan Anda.",
-
-  // Not Found
+  "welcome.subtitle": "Pilih model Anda di atas, lalu ketik pesan.",
+  "models.title": "AI Gateways",
+  "models.description": "Tambahkan endpoint OpenAI-compatible milikmu. Kunci disimpan terenkripsi.",
+  "models.label": "Label",
+  "models.labelPlaceholder": "GPT Saya",
+  "models.baseUrl": "URL API",
+  "models.baseUrlPlaceholder": "https://api.openai.com/v1",
+  "models.baseUrlHelp": "Base URL API OpenAI-compatible, mis. https://api.openai.com/v1",
+  "models.apiKey": "API key",
+  "models.apiKeyPlaceholder": "sk-...",
+  "models.apiKeyHelp": "Disimpan terenkripsi. Kosongkan saat edit untuk memakai kunci lama.",
+  "models.modelId": "ID Model",
+  "models.modelIdPlaceholder": "gpt-4o-mini",
+  "models.modelIdHelp": "ID model seperti dikirim ke API.",
+  "models.addFirst": "Tambah model pertama",
+  "models.addNew": "Tambah model",
+  "models.edit": "Edit",
+  "models.delete": "Hapus",
+  "models.deleteConfirm": "Hapus model ini?",
+  "models.save": "Simpan",
+  "models.cancel": "Batal",
+  "models.test": "Tes",
+  "models.testing": "Mengetes…",
+  "models.testOk": "Koneksi OK",
+  "models.testFail": "Koneksi gagal",
+  "models.empty": "Belum ada model. Tambahkan untuk mulai chat.",
+  "models.emptyWelcome": "Tambahkan model milikmu untuk mulai chat.",
+  "models.loading": "Memuat model…",
+  "models.manage": "Kelola gateway",
+  "models.needModel": "Tambahkan model di Settings → AI Models untuk mulai…",
+  "models.selectModel": "Pilih model",
   "notFound.code": "404",
   "notFound.title": "Halaman Tidak Ditemukan",
   "notFound.description": "Halaman yang Anda cari tidak ada atau telah dipindahkan.",
   "notFound.goHome": "Kembali ke Chat",
-
-  // Rate limit errors
-  "error.dailyLimit": "Batas pesan harian tercapai ({limit} pesan/hari). Reset besok tengah malam (UTC).",
-  "error.rateLimit": "Batas penggunaan tercapai ({limit} pesan/hari). Reset besok tengah malam (UTC).",
+  "error.rateLimit": "Terlalu banyak permintaan. Coba lagi nanti.",
   "error.serverError": "Terjadi kesalahan saat terhubung ke AI. Silakan coba lagi.",
-  "error.dailyLimitGeneric": "Batas pesan harian tercapai. Reset besok tengah malam (UTC).",
-
-  // Model Dropdown
-  "model.select": "Pilih model",
-
-  // Code Blocks
   "code.copy": "Salin",
   "code.copied": "Tersalin!",
   "code.copyLabel": "Salin kode",
   "code.copiedLabel": "Tersalin",
+  "model.select": "Pilih model",
 };
 
 export default id;
