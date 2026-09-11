@@ -5,6 +5,7 @@ export const metadata: Metadata = {
   title: "About",
   description:
     "What VonssyAI is: a BYOK multi-model chat app. Bring your own OpenAI-compatible API keys; they are stored encrypted.",
+  alternates: { canonical: "/about" },
 };
 
 const FAQS_EN = [

@@ -1,7 +1,15 @@
+import type { Metadata } from "next";
 import { signIn } from "@/lib/auth";
 import Link from "next/link";
 import { LoginTagline, LoginGoogleLabel, LoginGitHubLabel, LoginFooter, LoginAboutLabel, LoginPrivacyLabel, LoginTermsLabel } from "./LoginText";
 import LoginLanguageSelector from "./LoginLanguageSelector";
+
+export const metadata: Metadata = {
+  title: "Login",
+  description:
+    "Sign in to VonssyAI with Google or GitHub to chat with your own OpenAI-compatible models.",
+  alternates: { canonical: "/login" },
+};
 
 export default function LoginPage() {
   return (

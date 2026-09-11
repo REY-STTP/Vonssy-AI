@@ -32,7 +32,7 @@ export default function PublicDoc({
         <p className="text-sm font-mono text-text-secondary mb-4">
           <Link
             href={backHref}
-            className="hover:text-accent underline underline-offset-2 transition-colors"
+            className="hover:text-accent transition-colors"
           >
             {backLabel}
           </Link>

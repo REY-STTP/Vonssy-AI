@@ -43,9 +43,9 @@ export const metadata: Metadata = {
     template: "%s | VonssyAI",
   },
   description: SITE_DESCRIPTION,
-  alternates: {
-    canonical: "/",
-  },
+  // NOTE: no global canonical here — each public page declares its own
+  // self-referencing canonical. A global "/" canonical made /login look
+  // like a duplicate of the noindex chat root, blocking its indexing.
   openGraph: {
     type: "website",
     siteName: "VonssyAI",
