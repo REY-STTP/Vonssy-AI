@@ -1,10 +1,13 @@
 import OpenAI from "openai";
 import { AIProvider, ChatOptions, StreamChunk } from "./types";
+import { redactSecrets } from "@/lib/redact";
 
 export interface UserGatewayConfig {
   name: string;
   baseURL: string;
   apiKey: string;
+  /** Custom fetch (e.g. redirect-rejecting) forwarded to the OpenAI SDK. */
+  fetchImpl?: typeof fetch;
 }
 
 /**
@@ -20,7 +23,11 @@ export class OpenAICompatibleGateway implements AIProvider {
     if (!config.baseURL) throw new Error("baseURL is required.");
     if (!config.apiKey) throw new Error("API key is required.");
     this.name = config.name;
-    this.client = new OpenAI({ apiKey: config.apiKey, baseURL: config.baseURL });
+    this.client = new OpenAI({
+      apiKey: config.apiKey,
+      baseURL: config.baseURL,
+      ...(config.fetchImpl ? { fetch: config.fetchImpl } : {}),
+    });
   }
 
   async *streamChat(options: ChatOptions): AsyncGenerator<StreamChunk> {
@@ -86,7 +93,17 @@ export class OpenAICompatibleGateway implements AIProvider {
           isRateLimited: true,
         };
       } else {
-        yield { type: "error", error: message };
+        // E6: generic client message; full text stays server-side, redacted.
+        console.error(
+          `[gateway:${this.name}] upstream error:`,
+          redactSecrets(message).slice(0, 500)
+        );
+        const status =
+          typeof err.status === "number" ? ` (status ${err.status})` : "";
+        yield {
+          type: "error",
+          error: `Upstream rejected the request${status}.`,
+        };
       }
     }
   }

@@ -9,9 +9,9 @@ import {
   validateLabel,
   validateModelId,
 } from "@/lib/user-models/validation";
+import { assertBaseUrlAllowed } from "@/lib/ssrf-guard";
+import { isUuid } from "@/lib/validate-uuid";
 import { eq, and } from "drizzle-orm";
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 async function owned(id: string, userId: string) {
   const [row] = await db
@@ -38,7 +38,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   const session = await auth();
   if (!session?.user?.id) return Response.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
-  if (!UUID_RE.test(id)) return Response.json({ error: "Not found." }, { status: 404 });
+  if (!isUuid(id)) return Response.json({ error: "Not found." }, { status: 404 });
   const row = await owned(id, session.user.id);
   if (!row) return Response.json({ error: "Not found." }, { status: 404 });
   return Response.json({ model: toPublic(row) });
@@ -48,7 +48,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const session = await auth();
   if (!session?.user?.id) return Response.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
-  if (!UUID_RE.test(id)) return Response.json({ error: "Not found." }, { status: 404 });
+  if (!isUuid(id)) return Response.json({ error: "Not found." }, { status: 404 });
   const row = await owned(id, session.user.id);
   if (!row) return Response.json({ error: "Not found." }, { status: 404 });
 
@@ -62,7 +62,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   try {
     const patch: Partial<typeof userAiModels.$inferInsert> = { updatedAt: new Date() };
     if (body.label !== undefined) patch.label = validateLabel(body.label);
-    if (body.baseUrl !== undefined) patch.baseUrl = normalizeBaseUrl(body.baseUrl);
+    if (body.baseUrl !== undefined) {
+      const normalized = normalizeBaseUrl(body.baseUrl);
+      // A3: DNS-level SSRF check at write time, not only at use time.
+      await assertBaseUrlAllowed(normalized);
+      patch.baseUrl = normalized;
+    }
     if (body.model !== undefined) patch.model = validateModelId(body.model);
     if (body.apiKey !== undefined && body.apiKey !== "") {
       const key = validateApiKey(body.apiKey);
@@ -87,7 +92,7 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
   const session = await auth();
   if (!session?.user?.id) return Response.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
-  if (!UUID_RE.test(id)) return Response.json({ error: "Not found." }, { status: 404 });
+  if (!isUuid(id)) return Response.json({ error: "Not found." }, { status: 404 });
   const row = await owned(id, session.user.id);
   if (!row) return Response.json({ error: "Not found." }, { status: 404 });
   await db

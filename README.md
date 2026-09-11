@@ -31,13 +31,13 @@ Built by **Vonssy, the Heavenly Demon King**.
 - **SSRF guard** — User-supplied `baseUrl` is validated (https-only, block metadata/private IPs) before any server fetch.
 
 ### Personalization
-- **Preferred Name & Date of Birth** — Set in Settings; the AI uses these contextually via server-side system prompt injection (not client-spoofable).
+- **Preferred Name & Date of Birth** — Opt-in toggle in Settings → Profile (default off); when enabled, the AI uses these contextually via server-side system prompt injection (not client-spoofable).
 - **Custom Avatars** — Choose between OAuth profile photo or DiceBear-generated avatars (Croodles Neutral, Lorelei Neutral, Notionists Neutral styles) with customizable seed.
 - **Reading Font** — Switch between Inter (sans-serif), Source Serif 4 (serif), and JetBrains Mono (monospace) for AI response rendering.
 
 ### Appearance & i18n
 - **Dark / Light / System Theme** — Toggle with `next-themes`, persisted across sessions. Theme toggle available on both the login page and chat settings.
-- **Bilingual (EN / ID)** — Full internationalization with English and Indonesian translations. Language selector on login page and in settings.
+- **Bilingual (EN / ID)** — Full internationalization with English and Indonesian translations, including the public about/privacy/terms pages. Language selector on login page, public pages, and in settings.
 - **Design System** — Custom CSS variables for colors, spacing, and shadows. Warm earthy palette (terracotta accent) with glassmorphism elements.
 
 ### UI/UX Polish
@@ -79,7 +79,7 @@ Built by **Vonssy, the Heavenly Demon King**.
 - A PostgreSQL database (e.g. [Supabase](https://supabase.com/))
 - Google OAuth credentials ([console.cloud.google.com](https://console.cloud.google.com/apis/credentials))
 - GitHub OAuth credentials ([github.com/settings/applications/new](https://github.com/settings/applications/new))
-- API keys for at least one AI gateway (SeekAI, XKiro, Nara, or Inception)
+- An OpenAI-compatible API endpoint of your own (URL + key + model ID) — the app is BYOK, no server-side gateway keys needed
 
 ### Setup
 
@@ -117,6 +117,8 @@ See [`.env.example`](.env.example) for the full list. Key variables:
 | `ENCRYPTION_SECRET` | AES-256-GCM key for user API keys (`openssl rand -base64 32`). Rotating invalidates stored keys. |
 | `ALLOW_PRIVATE_BASE_URL` | `true` to allow localhost/internal base URLs (dev only) |
 | `NEXTAUTH_URL` | App URL for Auth.js callbacks (default: `http://localhost:3000`) |
+| `GOOGLE_SITE_VERIFICATION` | Search Console verification token (public meta tag; empty = no tag) |
+| `BING_SITE_VERIFICATION` | Bing Webmaster `msvalidate.01` token (public meta tag; empty = no tag) |
 
 ### Scripts
 
@@ -148,7 +150,16 @@ src/
 │   │   ├── auth/[...nextauth]/ # NextAuth route handler
 │   │   ├── chat/               # BYOK SSE streaming endpoint + feedback
 │   │   ├── sessions/           # CRUD for sessions + paginated "all" endpoint
-│   │   └── user/               # Profile, avatar + models CRUD + test
+│   │   └── user/               # Profile, avatar, share-profile + models CRUD + test
+│   ├── about/                  # Public about + FAQ page (SEO/LLMO, JSON-LD)
+│   ├── privacy/                # Public privacy policy (EN/ID)
+│   ├── terms/                  # Public terms of service (EN/ID)
+│   ├── robots.ts               # Crawler + AI-bot policy
+│   ├── sitemap.ts              # Public routes sitemap
+│   ├── manifest.ts             # PWA manifest
+│   ├── icon.svg                # Brand mark (vector)
+│   ├── favicon.ico             # Multi-size icon (16/32/48)
+│   ├── apple-icon.png          # Apple touch icon (180px)
 │   ├── globals.css             # Design tokens, component classes, prose styles
 │   ├── layout.tsx              # Root layout (fonts, ThemeProvider, Toaster)
 │   └── not-found.tsx           # Custom 404 page
@@ -162,8 +173,9 @@ src/
 │   │   ├── ModelDropdown.tsx   # User-model picker grouped by host
 │   │   ├── AllChatsModal.tsx   # Virtualized all-chats overlay
 │   │   ├── SettingsModal.tsx   # Settings (profile, AI gateways, appearance, data)
-│   │   └── MarkdownRenderer.tsx # Markdown + syntax highlighting
+│   │   └── MarkdownRenderer.tsx # Markdown + syntax highlighting (PrismLight)
 │   ├── ThemeProvider.tsx       # next-themes wrapper
+│   ├── PublicDoc.tsx           # Shared shell for public pages (about/privacy/terms)
 │   └── UserAvatar.tsx          # OAuth photo or DiceBear avatar
 │
 ├── hooks/
@@ -171,6 +183,7 @@ src/
 │   ├── useSessions.ts          # Session CRUD, pin, rename, delete
 │   ├── useAllChats.ts          # Paginated all-chats with search/filter
 │   ├── useUserModels.ts        # User model configs CRUD + selection
+│   ├── useFocusTrap.ts         # Tab-trap for modals
 │   ├── useLocale.ts            # i18n hook (EN/ID)
 │   └── useReadingFont.ts       # Reading font preference
 │
@@ -188,7 +201,10 @@ src/
 │   ├── auth.config.ts          # Edge-compatible auth config (providers only)
 │   ├── constants.ts            # App-wide constants
 │   ├── crypto.ts               # AES-256-GCM encrypt/decrypt for user keys
-│   └── ssrf-guard.ts           # Base-URL allowlist for user endpoints
+│   ├── redact.ts               # Key-like pattern redaction for logs/errors
+│   ├── ssrf-guard.ts           # Base-URL allowlist for user endpoints
+│   ├── throttle.ts             # DB-backed fixed-window throttling
+│   └── validate-uuid.ts        # Central UUID validator
 │
 ├── locales/
 │   ├── en.ts                   # English translations
@@ -196,8 +212,13 @@ src/
 │
 └── proxy.ts                    # Route protection (Next.js 16 proxy)
 
+public/
+├── icons/                      # PWA icons (192px, 512px maskable)
+├── llms.txt                    # Machine-readable app summary
+└── og-image.png                # OpenGraph image (1200×630)
+
 db/migrations/                  # SQL migration files (Drizzle Kit)
-migrate.js                      # Migration runner (loads .env.local, runs files in order)
+migrate.js                      # Migration runner (loads .env.local, per-file transactions)
 ```
 
 ---
@@ -206,7 +227,7 @@ migrate.js                      # Migration runner (loads .env.local, runs files
 
 | Table | Purpose |
 |---|---|
-| `users` | Auth.js user records + preferred name, date of birth, avatar settings |
+| `users` | Auth.js user records + preferred name, date of birth, avatar settings, share-profile opt-in |
 | `accounts` | OAuth account links (Google, GitHub) |
 | `sessions` | Auth.js session tokens |
 | `verification_tokens` | Email verification (Auth.js) |
@@ -214,6 +235,7 @@ migrate.js                      # Migration runner (loads .env.local, runs files
 | `messages` | Chat messages with role, content, provider label/model snapshot, feedback |
 | `usage_logs` | Token usage tracking per message (prompt/completion tokens, latency) |
 | `user_ai_models` | Per-user BYOK configs: label, base_url, encrypted key + hint, model |
+| `throttle_buckets` | Fixed-window abuse-throttle counters shared across instances |
 
 ---
 
@@ -225,7 +247,7 @@ The UI uses a warm, earthy color palette with CSS custom properties:
 |---|---|---|
 | `--bg` | `#FAF9F6` | `#1A1918` |
 | `--surface` | `#FFFFFF` | `#232220` |
-| `--accent` | `#C15F3C` (terracotta) | `#D97B54` |
+| `--accent` | `#A94E2F` (terracotta, AA-safe for small text) | `#D97B54` |
 | `--text-primary` | `#1F1E1C` | `#EDEAE4` |
 | `--danger` | `#B3432B` | `#E06A4C` |
 
@@ -237,9 +259,12 @@ Pre-built component classes: `.card`, `.btn-primary`, `.btn-secondary`, `.btn-gh
 
 - **Server-side auth on every API route** — Not relying solely on proxy/middleware (CVE-2025-29927 mitigation).
 - **User keys encrypted at rest** — AES-256-GCM with `ENCRYPTION_SECRET`; API never returns full keys, only `****last4`.
-- **SSRF guard on custom endpoints** — `https`-only, metadata/private-IP blocking, DNS re-check, 15s timeout.
-- **Ownership checks** — Model configs scoped by `(id, userId)`; cross-user access returns 404.
-- **Personalization is server-injected** — Display name and DOB are injected into the system prompt server-side, preventing client spoofing.
+- **SSRF guard on custom endpoints** — `https`-only (port 443), metadata/private-IP blocking, DNS re-check, upstream redirects rejected, write-time + use-time checks, 15s timeout.
+- **Ownership checks** — Model configs and chat sessions scoped by `(id, userId)`; cross-user access returns 404.
+- **Personalization is opt-in + server-injected** — Name/DOB only reach the model when the user enables it in Settings → Profile (default off); values are sanitized single-line server-side, preventing client spoofing.
+- **Strict input validation** — Role allowlist, message/numeric caps, UUID format checks, LIKE escaping, and length caps return 400 before any DB write.
+- **Abuse throttling** — DB-backed fixed windows (test 5/min, chat 300/day, session creation 50/day) with `429 + Retry-After`.
+- **Security headers** — CSP, HSTS, `nosniff`, `frame-ancestors 'none'`, strict referrer policy via `next.config.ts`.
 - **UUID validation** — API endpoints validate UUID format before database queries to prevent PostgreSQL injection errors.
 
 ---

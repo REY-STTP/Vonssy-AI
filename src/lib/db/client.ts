@@ -24,10 +24,13 @@ function getClient() {
           "See .env.example for the required format."
       );
     }
+    // D5: single pooled connection + no prepared statements so the
+    // Supabase transaction pooler (port 6543) is never exhausted.
     globalForDb.pgClient = postgres(url, {
-      max: 10,
+      max: 1,
       idle_timeout: 20,
       connect_timeout: 10,
+      prepare: false,
     });
   }
   return globalForDb.pgClient;

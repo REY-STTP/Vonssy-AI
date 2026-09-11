@@ -10,13 +10,14 @@ import {
   validateModelId,
 } from "@/lib/user-models/validation";
 import { eq, and, desc } from "drizzle-orm";
+import { assertBaseUrlAllowed } from "@/lib/ssrf-guard";
+
+// D6: per-user mutable data — never cache.
+export const dynamic = "force-dynamic";
+
+const NO_STORE = { "Cache-Control": "private, no-store" };
 
 const MAX_PER_USER = 50;
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-export function isUuid(v: string): boolean {
-  return UUID_RE.test(v);
-}
 
 export async function GET() {
   const session = await auth();
@@ -36,7 +37,7 @@ export async function GET() {
     .where(eq(userAiModels.userId, session.user.id))
     .orderBy(desc(userAiModels.updatedAt));
 
-  return Response.json({ models: rows });
+  return Response.json({ models: rows }, { headers: NO_STORE });
 }
 
 export async function POST(request: Request) {
@@ -55,6 +56,16 @@ export async function POST(request: Request) {
     const baseUrl = normalizeBaseUrl(body.baseUrl ?? "");
     const apiKey = validateApiKey(body.apiKey ?? "");
     const model = validateModelId(body.model ?? "");
+
+    // A3: DNS-level SSRF check at write time, not only at use time.
+    try {
+      await assertBaseUrlAllowed(baseUrl);
+    } catch (err) {
+      return Response.json(
+        { error: err instanceof Error ? err.message : "Blocked host." },
+        { status: 400 }
+      );
+    }
 
     const existing = await db
       .select({ id: userAiModels.id })

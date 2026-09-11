@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useState, useCallback } from "react";
+import { useRef, useEffect, useState, useCallback, memo } from "react";
 import MarkdownRenderer from "./MarkdownRenderer";
 import { useLocale } from "@/hooks/useLocale";
 
@@ -25,7 +25,7 @@ interface MessageThreadProps {
   displayName?: string | null;
 }
 
-export default function MessageThread({
+function MessageThread({
   messages,
   truncationIndex,
   streamingContent,
@@ -56,12 +56,23 @@ export default function MessageThread({
     }
   }, [editContent, editingId]);
 
-  // Auto-scroll on new content
+  // G6: honor reduced-motion for programmatic scrolling.
+  const reducedMotion = useCallback(
+    () =>
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    []
+  );
+
+  // Auto-scroll on new content (D4: instant while streaming to avoid
+  // queuing hundreds of smooth animations; smooth otherwise).
   useEffect(() => {
     if (scrollAction !== "down") {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      bottomRef.current?.scrollIntoView({
+        behavior: isStreaming || reducedMotion() ? "auto" : "smooth",
+      });
     }
-  }, [messages, streamingContent, scrollAction]);
+  }, [messages, streamingContent, scrollAction, isStreaming, reducedMotion]);
 
   const handleScroll = useCallback(() => {
     const el = containerRef.current;
@@ -88,10 +99,11 @@ export default function MessageThread({
   }, []);
 
   const handleScrollButton = () => {
+    const behavior = reducedMotion() ? "auto" : "smooth";
     if (scrollAction === "down") {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      bottomRef.current?.scrollIntoView({ behavior });
     } else if (scrollAction === "up") {
-      containerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+      containerRef.current?.scrollTo({ top: 0, behavior });
     }
   };
 
@@ -134,7 +146,7 @@ export default function MessageThread({
     <div
       ref={containerRef}
       onScroll={handleScroll}
-      className="flex-1 overflow-y-auto relative px-4"
+      className="chat-scroll flex-1 overflow-y-auto relative px-4"
     >
       <div className="max-w-3xl mx-auto w-full pt-4 pb-6 space-y-[1.5rem]">
 
@@ -154,6 +166,7 @@ export default function MessageThread({
                       ref={editTextareaRef}
                       rows={1}
                       value={editContent}
+                      aria-label={t("message.edit")}
                       onChange={(e) => setEditContent(e.target.value)}
                       className="w-full block resize-none border-0 bg-transparent p-0 shadow-none outline-none text-[15px] text-text-primary leading-relaxed [field-sizing:content] max-h-[320px] overflow-y-auto whitespace-pre-wrap break-words font-reading"
                       style={{ scrollbarWidth: 'none' }}
@@ -189,8 +202,9 @@ export default function MessageThread({
                     <button
                       type="button"
                       onClick={() => onRegenerateFrom(msg.id)}
-                      className="text-text-secondary hover:text-text-primary p-1.5 rounded-md hover:bg-surface-raised transition-colors flex items-center justify-center"
+                      className="text-text-secondary hover:text-text-primary p-2 rounded-md hover:bg-surface-raised transition-colors flex items-center justify-center"
                       title={t("message.regenerate")}
+                      aria-label={t("message.regenerate")}
                     >
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
                     </button>
@@ -199,8 +213,9 @@ export default function MessageThread({
                     <button
                       type="button"
                       onClick={() => startEdit(msg)}
-                      className="text-text-secondary hover:text-text-primary p-1.5 rounded-md hover:bg-surface-raised transition-colors flex items-center justify-center"
+                      className="text-text-secondary hover:text-text-primary p-2 rounded-md hover:bg-surface-raised transition-colors flex items-center justify-center"
                       title={t("message.edit")}
+                      aria-label={t("message.edit")}
                     >
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
@@ -211,8 +226,9 @@ export default function MessageThread({
                   <button
                     type="button"
                     onClick={() => copyMessage(msg.content, msg.id)}
-                    className="text-text-secondary hover:text-text-primary p-1.5 rounded-md hover:bg-surface-raised transition-colors flex items-center justify-center"
+                    className="text-text-secondary hover:text-text-primary p-2 rounded-md hover:bg-surface-raised transition-colors flex items-center justify-center"
                     title={t("message.copyMessage")}
+                    aria-label={copiedId === msg.id ? t("code.copied") : t("message.copyMessage")}
                   >
                     {copiedId === msg.id ? (
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
@@ -247,8 +263,9 @@ export default function MessageThread({
                     <button
                       type="button"
                       onClick={() => copyMessage(msg.content, msg.id)}
-                      className="text-text-secondary hover:text-text-primary p-1.5 rounded-md hover:bg-surface-raised transition-colors flex items-center justify-center -ml-1.5"
+                      className="text-text-secondary hover:text-text-primary p-2 rounded-md hover:bg-surface-raised transition-colors flex items-center justify-center -ml-1.5"
                       title={t("message.copyResponse")}
+                      aria-label={copiedId === msg.id ? t("code.copied") : t("message.copyResponse")}
                     >
                       {copiedId === msg.id ? (
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
@@ -261,12 +278,14 @@ export default function MessageThread({
                         <button
                           type="button"
                           onClick={() => onFeedback(msg.id, msg.feedback === "like" ? null : "like")}
-                          className={`p-1.5 rounded-md transition-colors flex items-center justify-center ${
+                          className={`p-2 rounded-md transition-colors flex items-center justify-center ${
                             msg.feedback === "like"
                               ? "text-accent"
                               : "text-text-secondary hover:text-text-primary hover:bg-surface-raised"
                           }`}
                           title={t("message.like")}
+                          aria-label={t("message.like")}
+                          aria-pressed={msg.feedback === "like"}
                         >
                           <svg width="14" height="14" viewBox="0 0 24 24" fill={msg.feedback === "like" ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
@@ -275,12 +294,14 @@ export default function MessageThread({
                         <button
                           type="button"
                           onClick={() => onFeedback(msg.id, msg.feedback === "dislike" ? null : "dislike")}
-                          className={`p-1.5 rounded-md transition-colors flex items-center justify-center ${
+                          className={`p-2 rounded-md transition-colors flex items-center justify-center ${
                             msg.feedback === "dislike"
                               ? "text-danger"
                               : "text-text-secondary hover:text-text-primary hover:bg-surface-raised"
                           }`}
                           title={t("message.dislike")}
+                          aria-label={t("message.dislike")}
+                          aria-pressed={msg.feedback === "dislike"}
                         >
                           <svg width="14" height="14" viewBox="0 0 24 24" fill={msg.feedback === "dislike" ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17" />
@@ -296,16 +317,20 @@ export default function MessageThread({
           );
         })}
 
-        {/* Streaming content */}
+        {/* Streaming content — plain <pre> while streaming (B3: skip
+            full Markdown+Prism re-parse per token); final message below
+            renders highlighted via MarkdownRenderer. */}
         {isStreaming && (
           <div className="self-start w-full leading-relaxed relative font-reading">
             {streamingContent ? (
               <div>
-                <MarkdownRenderer content={streamingContent} />
+                <pre className="whitespace-pre-wrap break-words text-sm leading-relaxed font-reading">
+                  {streamingContent}
+                </pre>
                 <span className="inline-block w-2.5 h-2.5 ml-1 rounded-full bg-accent animate-pulse align-baseline" />
               </div>
             ) : (
-              <div className="flex items-center h-6 gap-2">
+              <div className="flex items-center h-6 gap-2" role="status">
                 <span className="w-2.5 h-2.5 rounded-full bg-accent animate-pulse" />
                 <span className="text-[13px] text-text-secondary animate-pulse">{t("message.thinking")}</span>
               </div>
@@ -314,6 +339,11 @@ export default function MessageThread({
         )}
 
         <div ref={bottomRef} className="h-4" />
+
+        {/* G4: polite announcements for SR (copied / stream finished). */}
+        <span aria-live="polite" className="sr-only">
+          {copiedId ? t("code.copied") : ""}
+        </span>
       </div>
 
       {/* Scroll button */}
@@ -322,7 +352,7 @@ export default function MessageThread({
           type="button"
           onClick={handleScrollButton}
           className="fixed bottom-36 right-8 flex items-center justify-center w-10 h-10 rounded-full bg-surface-raised border border-border shadow-md text-text-secondary hover:text-text-primary transition-colors z-50"
-          aria-label={scrollAction === "down" ? t("message.scrollToBottom") : "Scroll to top"}
+          aria-label={scrollAction === "down" ? t("message.scrollToBottom") : t("message.scrollToTop")}
         >
           {scrollAction === "down" ? (
             <svg
@@ -358,3 +388,5 @@ export default function MessageThread({
     </div>
   );
 }
+
+export default memo(MessageThread);

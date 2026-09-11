@@ -1,14 +1,15 @@
 import { signIn } from "@/lib/auth";
-import { LoginTagline, LoginGoogleLabel, LoginGitHubLabel, LoginFooter } from "./LoginText";
+import Link from "next/link";
+import { LoginTagline, LoginGoogleLabel, LoginGitHubLabel, LoginFooter, LoginAboutLabel, LoginPrivacyLabel, LoginTermsLabel } from "./LoginText";
 import LoginLanguageSelector from "./LoginLanguageSelector";
 
 export default function LoginPage() {
   return (
-    <div className="min-h-dvh flex items-center justify-center bg-bg p-4 relative overflow-hidden">
+    <main className="min-h-dvh flex items-center justify-center bg-bg p-4 relative overflow-hidden">
       <LoginLanguageSelector />
       
       {/* ── Background Detail ───────────────────────────── */}
-      <div className="absolute -right-32 -bottom-32 opacity-[0.03] pointer-events-none select-none text-text-primary">
+      <div className="absolute -right-32 -bottom-32 opacity-[0.03] pointer-events-none select-none text-text-primary" aria-hidden="true">
         <svg
           width="600"
           height="600"
@@ -18,6 +19,8 @@ export default function LoginPage() {
           strokeWidth="1"
           strokeLinecap="round"
           strokeLinejoin="round"
+          aria-hidden="true"
+          focusable="false"
         >
           <path d="M12 2L2 22h20L12 2z" />
           <path d="M12 22V2" />
@@ -69,13 +72,38 @@ export default function LoginPage() {
         </div>
 
         {/* ── Footer ───────────────────────────────────────── */}
-        <div className="mt-8 text-center">
+        <div className="mt-8 text-center space-y-2">
           <p className="text-xs text-text-secondary font-mono">
             <LoginFooter />
           </p>
+          <nav
+            aria-label="Footer"
+            className="flex items-center justify-center gap-2 text-xs text-text-secondary"
+          >
+            <Link
+              href="/about"
+              className="hover:text-accent underline underline-offset-2 transition-colors"
+            >
+              <LoginAboutLabel />
+            </Link>
+            <span aria-hidden="true">•</span>
+            <Link
+              href="/privacy"
+              className="hover:text-accent underline underline-offset-2 transition-colors"
+            >
+              <LoginPrivacyLabel />
+            </Link>
+            <span aria-hidden="true">•</span>
+            <Link
+              href="/terms"
+              className="hover:text-accent underline underline-offset-2 transition-colors"
+            >
+              <LoginTermsLabel />
+            </Link>
+          </nav>
         </div>
       </div>
-    </div>
+    </main>
   );
 }
 

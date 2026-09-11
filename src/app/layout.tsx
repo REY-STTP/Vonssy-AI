@@ -6,31 +6,78 @@ import "./globals.css";
 
 const inter = Inter({
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
   variable: "--font-inter",
   display: "swap",
 });
 
 const sourceSerif4 = Source_Serif_4({
   subsets: ["latin"],
+  weight: ["400", "600"],
   variable: "--font-source-serif",
   display: "swap",
 });
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
+  weight: ["400", "500"],
   variable: "--font-jetbrains",
   display: "swap",
 });
 
+const SITE_URL = (() => {
+  try {
+    return new URL(process.env.NEXTAUTH_URL ?? "https://www.vonssy-ai.web.id");
+  } catch {
+    return new URL("https://www.vonssy-ai.web.id");
+  }
+})();
+
+const SITE_DESCRIPTION =
+  "Bring your own keys. Chat with multiple OpenAI-compatible models through one unified, encrypted BYOK interface.";
+
 export const metadata: Metadata = {
-  title: "VonssyAI — Multi-Provider Chat",
-  description:
-    "Converse with multiple AI models through one unified interface. Built by Vonssy, the Heavenly Demon King.",
+  metadataBase: SITE_URL,
+  title: {
+    default: "VonssyAI — BYOK Multi-Model Chat",
+    template: "%s | VonssyAI",
+  },
+  description: SITE_DESCRIPTION,
+  alternates: {
+    canonical: "/",
+  },
   openGraph: {
-    title: "VonssyAI",
-    description:
-      "Multi-provider AI chatbot — Qwen, Grok, Mercury and more through free-tier gateways.",
     type: "website",
+    siteName: "VonssyAI",
+    url: "/",
+    title: "VonssyAI — BYOK Multi-Model Chat",
+    description: SITE_DESCRIPTION,
+    locale: "en_US",
+    alternateLocale: ["id_ID"],
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "VonssyAI — BYOK Multi-Model Chat",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "VonssyAI — BYOK Multi-Model Chat",
+    description: SITE_DESCRIPTION,
+    images: ["/og-image.png"],
+  },
+  // F5: site-verification meta tags. Tokens are public by design;
+  // env keeps them out of source. Empty values emit nothing.
+  verification: {
+    google: process.env.GOOGLE_SITE_VERIFICATION || undefined,
+    other: {
+      ...(process.env.BING_SITE_VERIFICATION
+        ? { "msvalidate.01": process.env.BING_SITE_VERIFICATION }
+        : {}),
+    },
   },
 };
 

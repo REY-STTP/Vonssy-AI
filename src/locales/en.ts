@@ -13,6 +13,7 @@ const en = {
   "sidebar.options": "Session options",
   "sidebar.pinned": "Pinned",
   "sidebar.allChats": "All chats",
+  "sidebar.menu": "Chat menu",
 
   // All Chats overlay
   "allChats.title": "All Chats",
@@ -44,7 +45,9 @@ const en = {
   "message.like": "Like",
   "message.dislike": "Dislike",
   "message.scrollToBottom": "Scroll to bottom",
+  "message.scrollToTop": "Scroll to top",
   "message.thinking": "thinking...",
+  "message.skipToChat": "Skip to chat",
 
   // Settings
   "settings.title": "Settings",
@@ -65,6 +68,8 @@ const en = {
   "profile.signedInWith": "Signed in with",
   "profile.memberSince": "Member since",
   "profile.signOut": "Sign Out",
+  "profile.shareProfile": "Share name & birthday with AI",
+  "profile.shareProfileDesc": "When on, your preferred name and date of birth are sent to your own AI endpoint with each message. Off by default.",
 
   // Avatar Picker
   "avatar.changeAvatar": "Change avatar",
@@ -111,6 +116,7 @@ const en = {
   "login.google": "Continue with Google",
   "login.github": "Continue with GitHub",
   "login.footer": "Built by Vonssy — Heavenly Demon King",
+  "login.about": "About",
 
   // Welcome / Empty state
   "welcome.greeting": "Hi {name}, how can I help you today?",
@@ -167,6 +173,75 @@ const en = {
 
   // Model Dropdown (legacy alias)
   "model.select": "Select model",
+
+  // Login footer links
+  "login.privacy": "Privacy",
+  "login.terms": "Terms",
+
+  // About page
+  "about.title": "About",
+  "about.back": "← Back to login",
+  "about.p1": "VonssyAI is a chat app that talks to multiple AI models through one unified interface. Instead of locking you into a single provider, it is BYOK — bring your own key.",
+  "about.p2": "You connect your own OpenAI-compatible endpoints: a base URL, an API key, and a model ID, managed under Settings → AI Gateways. Your keys are encrypted at rest with AES-256-GCM, and only the last four characters are ever displayed. Chat sessions belong to your account and are never indexed by search engines.",
+  "about.faqTitle": "Frequently asked questions",
+  "about.faq.1.q": "What is VonssyAI?",
+  "about.faq.1.a": "VonssyAI is a chat app that talks to multiple AI models through one unified interface. Chat history, settings, and model configurations are stored in your account.",
+  "about.faq.2.q": "What does BYOK mean here?",
+  "about.faq.2.a": "Bring Your Own Key. You supply your own OpenAI-compatible API endpoint: a base URL, an API key, and a model ID. Add as many configurations as you like under Settings → AI Gateways.",
+  "about.faq.3.q": "Which models are supported?",
+  "about.faq.3.a": "Any endpoint that speaks the OpenAI Chat Completions format over HTTPS, for example OpenAI-compatible gateways and self-hosted servers.",
+  "about.faq.4.q": "Where is my API key stored?",
+  "about.faq.4.a": "In Postgres, encrypted at rest with AES-256-GCM. The app only ever displays the last four characters (for example ****abcd). Keys are never logged, never exported, and never sent anywhere except your own configured endpoint.",
+  "about.faq.5.q": "Do I need an account?",
+  "about.faq.5.a": "Yes. Sign in with Google or GitHub. Chat sessions are private to your account and are explicitly excluded from search indexing.",
+  "about.faq.6.q": "Is VonssyAI free?",
+  "about.faq.6.a": "The app itself is free. Model usage is billed by your own AI provider according to your key.",
+
+  // Privacy Policy
+  "privacy.title": "Privacy Policy",
+  "privacy.updated": "Last updated: September 2026",
+  "privacy.intro": "VonssyAI is a bring-your-own-key chat app. This policy explains what personal data we collect, why, and the choices you have. By using the service you agree to this policy.",
+  "privacy.s1.title": "Information we collect",
+  "privacy.s1.body": "Account data from your sign-in provider (Google or GitHub): name, email address, and profile photo.\n\nProfile data you enter: preferred name, date of birth, and avatar settings.\n\nContent you create: chat sessions, messages, message feedback, and AI gateway configurations (label, API URL, model ID, and your encrypted API key).\n\nOperational data: token usage, latency, and abuse-prevention counters.",
+  "privacy.s2.title": "How we use information",
+  "privacy.s2.body": "To operate the service: authenticate you, store your chats and settings, and relay your messages to your configured AI endpoint.\n\nTo personalize responses with your preferred name and birthday — only if you enable it in Settings → Profile.\n\nTo protect the service: prevent abuse, debug errors, and enforce rate limits.",
+  "privacy.s3.title": "Sharing with third parties",
+  "privacy.s3.body": "Your messages are sent to the AI endpoint you configured — and only there. If you enable profile sharing, your preferred name and date of birth are sent along with them. Your AI provider processes that data under its own privacy policy.\n\nWe do not sell personal data, use it for advertising, or share it with anyone else.",
+  "privacy.s4.title": "Storage and security",
+  "privacy.s4.body": "Data is stored in a Postgres database (Supabase). API keys are encrypted at rest with AES-256-GCM; the app only displays their last four characters. Traffic is encrypted with TLS and sessions use revocable database tokens.\n\nNo system is perfectly secure. Protect your account credentials and never enter someone else's API key.",
+  "privacy.s5.title": "Retention and deletion",
+  "privacy.s5.body": "We keep your data while your account exists. Deleting your account permanently deletes your profile, chats, gateway configurations, and usage logs. Export your history first from Settings → Data — deletion cannot be undone.\n\nResidual copies may persist in routine database backups for a limited time.",
+  "privacy.s6.title": "Your rights",
+  "privacy.s6.body": "Depending on your jurisdiction (including Indonesia's PDP Law), you may have the right to access, correct, export, and delete your personal data. Export and deletion are built into Settings → Data; profile corrections are in Settings → Profile.",
+  "privacy.s7.title": "Cookies and local storage",
+  "privacy.s7.body": "We use a session cookie to keep you signed in (Auth.js database session, 30 days). Theme, language, and reading-font preferences are stored in your browser's local storage. We use no advertising or cross-site trackers.",
+  "privacy.s8.title": "Children",
+  "privacy.s8.body": "The service is not directed at children under 13, and we do not knowingly collect their data. If you believe a child has provided data, delete the account and the data will be removed.",
+  "privacy.s9.title": "Changes and contact",
+  "privacy.s9.body": "We may update this policy; material changes will be noted here with a new revision date. Continued use after changes means acceptance.\n\nFor privacy questions or requests, contact the site operator.",
+
+  // Terms of Service
+  "terms.title": "Terms of Service",
+  "terms.updated": "Last updated: September 2026",
+  "terms.intro": "These terms govern your use of VonssyAI. By signing in you agree to them. If you do not agree, do not use the service.",
+  "terms.s1.title": "The service",
+  "terms.s1.body": "VonssyAI provides a chat interface to AI models through endpoints you configure yourself (BYOK). An account (Google or GitHub sign-in) is required; chats are private to your account.",
+  "terms.s2.title": "Your account",
+  "terms.s2.body": "You are responsible for activity under your account and for keeping your sign-in credentials secure. Notify the operator of any unauthorized use.",
+  "terms.s3.title": "Your keys and endpoints",
+  "terms.s3.body": "You supply your own API keys and endpoints and are responsible for them: keep them confidential, use only keys you are entitled to use, and pay your provider's usage charges. Your key is decrypted in server memory solely to relay your messages to your endpoint.",
+  "terms.s4.title": "Acceptable use",
+  "terms.s4.body": "Do not use the service for anything unlawful; do not attack, probe, or circumvent the service's security or rate limits; do not infringe others' rights; do not use another person's API key without permission.",
+  "terms.s5.title": "AI outputs",
+  "terms.s5.body": "AI responses may be inaccurate, incomplete, or biased. They are not professional advice — verify anything important. You are responsible for how you use outputs.",
+  "terms.s6.title": "Availability",
+  "terms.s6.body": "The service is provided on a best-effort basis and may change, pause, or discontinue at any time. We are not responsible for outages or behavior of third-party AI providers.",
+  "terms.s7.title": "Termination",
+  "terms.s7.body": "You may delete your account at any time from Settings → Data; deletion is immediate and permanent. We may suspend or terminate accounts that abuse the service.",
+  "terms.s8.title": "Liability",
+  "terms.s8.body": "To the maximum extent permitted by law, the service is provided \"as is\" without warranties, and the operator is not liable for indirect or consequential damages arising from your use.",
+  "terms.s9.title": "Changes",
+  "terms.s9.body": "We may update these terms; continued use after changes means acceptance. Material changes will be noted here with a new revision date.",
 } as const;
 
 export type LocaleKeys = keyof typeof en;

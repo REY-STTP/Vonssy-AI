@@ -87,7 +87,7 @@ export function useSessions() {
 
   /**
    * Delete a session.
-   * Optimistic removal + authoritative refetch to backfill the sidebar.
+   * Optimistic removal; refetch only on failure (D6 — no double fetch).
    */
   const deleteSession = useCallback(
     async (id: string) => {
@@ -101,10 +101,7 @@ export function useSessions() {
         if (!res.ok) {
           // Revert on failure
           await fetchSessions();
-          return;
         }
-        // Authoritative refetch — backfills the slot left by the deleted session
-        await fetchSessions();
       } catch {
         await fetchSessions();
       }

@@ -52,13 +52,23 @@ async function migrate() {
 
       console.log(`Executing ${statements.length} statements...`);
 
-      for (const stmt of statements) {
-        try {
-          await sql.unsafe(stmt + ';');
-        } catch (err) {
-          console.error(`\nFAILED IN ${file} ON STATEMENT:\n` + stmt + '\n\nError:', err.message);
-          throw err;
-        }
+      // E8: one transaction per file — a mid-file failure rolls back
+      // the whole file instead of leaving a half-applied schema.
+      // sql.begin() reserves a single connection for the transaction.
+      try {
+        await sql.begin(async (tx) => {
+          for (const stmt of statements) {
+            try {
+              await tx.unsafe(stmt + ';');
+            } catch (err) {
+              console.error(`\nFAILED IN ${file} ON STATEMENT:\n` + stmt + '\n\nError:', err.message);
+              throw err;
+            }
+          }
+        });
+      } catch (err) {
+        console.error(`Rolled back ${file}.`);
+        throw err;
       }
     }
 

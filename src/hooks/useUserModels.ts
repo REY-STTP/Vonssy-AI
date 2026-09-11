@@ -52,6 +52,19 @@ export function useUserModels() {
     refresh();
   }, [refresh]);
 
+  // D6: keep selection valid after optimistic remove (refresh() only runs on load).
+  useEffect(() => {
+    setSelectedId((prev) => {
+      if (prev && models.some((m) => m.id === prev)) return prev;
+      const next = models[0]?.id ?? null;
+      if (typeof window !== "undefined") {
+        if (next) localStorage.setItem(STORAGE_KEY, next);
+        else localStorage.removeItem(STORAGE_KEY);
+      }
+      return next;
+    });
+  }, [models]);
+
   const select = useCallback((id: string) => {
     setSelectedId(id);
     if (typeof window !== "undefined") localStorage.setItem(STORAGE_KEY, id);
@@ -66,11 +79,14 @@ export function useUserModels() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Failed to create model.");
-      await refresh();
-      if (data.model?.id) select(data.model.id);
-      return data.model as UserModelConfig;
+      // D6: optimistic patch instead of full refetch (no loading flicker).
+      const created = data.model as UserModelConfig;
+      setModels((prev) => [created, ...prev]);
+      setError(null);
+      select(created.id);
+      return created;
     },
-    [refresh, select]
+    [select]
   );
 
   const update = useCallback(
@@ -82,10 +98,12 @@ export function useUserModels() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Failed to update model.");
-      await refresh();
-      return data.model as UserModelConfig;
+      const saved = data.model as UserModelConfig;
+      setModels((prev) => prev.map((m) => (m.id === id ? saved : m)));
+      setError(null);
+      return saved;
     },
-    [refresh]
+    []
   );
 
   const remove = useCallback(
@@ -95,9 +113,15 @@ export function useUserModels() {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || "Failed to delete model.");
       }
-      await refresh();
+      // D6: optimistic removal; fall back selection locally.
+      setModels((prev) => prev.filter((m) => m.id !== id));
+      setSelectedId((prev) => {
+        if (prev !== id) return prev;
+        return null; // resolved to first item by the effect below
+      });
+      setError(null);
     },
-    [refresh]
+    []
   );
 
   const test = useCallback(async (id: string) => {

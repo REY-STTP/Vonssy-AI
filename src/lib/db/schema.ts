@@ -26,6 +26,8 @@ export const users = pgTable("users", {
   avatarSource: text("avatar_source").notNull().default("oauth"),
   avatarStyle: text("avatar_style"),
   avatarSeed: text("avatar_seed"),
+  // E5: opt-in — include name/DOB in prompts sent to the user's own endpoint.
+  shareProfileWithAi: boolean("share_profile_with_ai").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 
@@ -52,17 +54,26 @@ export const accounts = pgTable(
       table.provider,
       table.providerAccountId
     ),
+    // D5: per-user account lookups (chat page, quota paths).
+    index("idx_accounts_user").on(table.userId),
   ]
 );
 
-export const sessions = pgTable("sessions", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  sessionToken: text("session_token").unique().notNull(),
-  userId: uuid("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  expires: timestamp("expires", { withTimezone: true }).notNull(),
-});
+export const sessions = pgTable(
+  "sessions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    sessionToken: text("session_token").unique().notNull(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    expires: timestamp("expires", { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    // D5: per-user session lookups + cascade deletes.
+    index("idx_sessions_user").on(table.userId),
+  ]
+);
 
 export const verificationTokens = pgTable(
   "verification_tokens",
@@ -96,6 +107,17 @@ export const chatSessions = pgTable(
   },
   (table) => [
     index("idx_chat_sessions_user").on(table.userId, table.updatedAt),
+    // D5: pinned split + cursor pagination hot paths.
+    index("idx_sessions_user_pin_updated").on(
+      table.userId,
+      table.isPinned,
+      table.updatedAt
+    ),
+    index("idx_sessions_user_updated_id").on(
+      table.userId,
+      table.updatedAt,
+      table.id
+    ),
   ]
 );
 
@@ -162,4 +184,11 @@ export const userAiModels = pgTable(
     index("idx_user_ai_models_user").on(table.userId, table.updatedAt),
   ]
 );
+
+// E3: fixed-window throttle buckets shared across server instances.
+export const throttleBuckets = pgTable("throttle_buckets", {
+  bucketKey: text("bucket_key").primaryKey(),
+  count: integer("count").notNull().default(1),
+  windowStart: timestamp("window_start", { withTimezone: true }).notNull().defaultNow(),
+});
 

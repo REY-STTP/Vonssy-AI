@@ -23,6 +23,7 @@ export default async function ChatPage() {
   let avatarSource: string = "oauth";
   let avatarStyle: string | null = null;
   let avatarSeed: string | null = null;
+  let shareProfileWithAi = false;
 
   if (session.user.id) {
     const [account] = await db
@@ -42,6 +43,7 @@ export default async function ChatPage() {
         avatarSource: users.avatarSource,
         avatarStyle: users.avatarStyle,
         avatarSeed: users.avatarSeed,
+        shareProfileWithAi: users.shareProfileWithAi,
       })
       .from(users)
       .where(eq(users.id, session.user.id))
@@ -60,6 +62,7 @@ export default async function ChatPage() {
     }
     avatarStyle = userData?.avatarStyle ?? null;
     avatarSeed = userData?.avatarSeed ?? null;
+    shareProfileWithAi = userData?.shareProfileWithAi ?? false;
   }
 
   return (
@@ -75,6 +78,7 @@ export default async function ChatPage() {
         avatarSource,
         avatarStyle,
         avatarSeed,
+        shareProfileWithAi,
       }}
     />
   );

@@ -3,29 +3,19 @@ import { db } from "@/lib/db/client";
 import { userAiModels } from "@/lib/db/schema";
 import { decryptApiKey } from "@/lib/crypto";
 import { assertBaseUrlAllowed } from "@/lib/ssrf-guard";
+import { checkThrottle, throttleResponse } from "@/lib/throttle";
+import { redactSecrets } from "@/lib/redact";
+import { isUuid } from "@/lib/validate-uuid";
 import { eq, and } from "drizzle-orm";
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-// Lightweight in-memory throttle: max 5 tests/min per user.
-const hits = new Map<string, number[]>();
-function checkThrottle(userId: string): boolean {
-  const now = Date.now();
-  const arr = (hits.get(userId) ?? []).filter((t) => now - t < 60_000);
-  if (arr.length >= 5) return false;
-  arr.push(now);
-  hits.set(userId, arr);
-  return true;
-}
 
 export async function POST(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user?.id) return Response.json({ error: "Unauthorized" }, { status: 401 });
-  if (!checkThrottle(session.user.id)) {
-    return Response.json({ error: "Too many tests. Try again in a minute." }, { status: 429 });
-  }
+  // E3: DB-backed throttle (5/min) — shared across instances.
+  const throttle = await checkThrottle(`test:${session.user.id}`, 5, 60_000);
+  if (!throttle.allowed) return throttleResponse(throttle);
   const { id } = await params;
-  if (!UUID_RE.test(id)) return Response.json({ error: "Not found." }, { status: 404 });
+  if (!isUuid(id)) return Response.json({ error: "Not found." }, { status: 404 });
 
   const [row] = await db
     .select()
@@ -50,7 +40,8 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 15_000);
-    const res = await fetch(`${row.baseUrl.replace(/\/+$/, "")}/chat/completions`, {
+    const endpoint = `${row.baseUrl.replace(/\/+$/, "")}/chat/completions`;
+    const payload = {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
@@ -59,11 +50,49 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
         max_tokens: 5,
       }),
       signal: controller.signal,
-    });
+      redirect: "manual" as const,
+    };
+    let res = await fetch(endpoint, payload);
+    // Allow at most ONE re-validated hop; never follow blindly (SSRF).
+    if (res.status >= 300 && res.status < 400) {
+      const location = res.headers.get("location");
+      let nextUrl: URL;
+      try {
+        if (!location) throw new Error("empty");
+        nextUrl = new URL(location, endpoint);
+      } catch {
+        clearTimeout(timer);
+        return Response.json({ ok: false, error: "Upstream redirect blocked for safety." });
+      }
+      if (nextUrl.protocol !== "https:") {
+        clearTimeout(timer);
+        return Response.json({ ok: false, error: "Upstream redirect blocked for safety." });
+      }
+      try {
+        await assertBaseUrlAllowed(nextUrl.origin);
+      } catch {
+        clearTimeout(timer);
+        return Response.json({ ok: false, error: "Upstream redirect blocked for safety." });
+      }
+      res = await fetch(nextUrl.toString(), { ...payload, redirect: "manual" as const });
+      if (res.status >= 300 && res.status < 400) {
+        clearTimeout(timer);
+        return Response.json({ ok: false, error: "Upstream redirect blocked for safety." });
+      }
+    }
     clearTimeout(timer);
     if (!res.ok) {
       const text = await res.text().catch(() => "");
-      return Response.json({ ok: false, error: `Upstream ${res.status}: ${text.slice(0, 300)}` });
+      // E6: generic client message; details stay server-side, redacted.
+      console.error(
+        "[models:test] upstream error:",
+        res.status,
+        redactSecrets(text).slice(0, 500)
+      );
+      return Response.json({
+        ok: false,
+        error: `Upstream rejected the request (status ${res.status}).`,
+      });
     }
     const data = await res.json().catch(() => null);
     const choice = data?.choices?.[0];
@@ -75,9 +104,8 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
       "OK";
     return Response.json({ ok: true, sample: String(sample).slice(0, 200) });
   } catch (err) {
-    return Response.json({
-      ok: false,
-      error: err instanceof Error ? err.message : "Connection failed.",
-    });
+    const safe = err instanceof Error ? redactSecrets(err.message) : "Connection failed.";
+    console.error("[models:test] connection error:", safe.slice(0, 300));
+    return Response.json({ ok: false, error: safe.slice(0, 300) });
   }
 }

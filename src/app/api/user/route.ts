@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db/client";
 import { users, chatSessions, messages, userAiModels } from "@/lib/db/schema";
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, inArray } from "drizzle-orm";
 
 /**
  * GET /api/user — Export user's chat history as JSON.
@@ -15,38 +15,48 @@ export async function GET() {
 
   const userId = session.user.id;
 
-  // Fetch all sessions with their messages
+  // D1: two queries total (was 1+N) — sessions, then all messages at once.
   const sessions = await db
     .select()
     .from(chatSessions)
     .where(eq(chatSessions.userId, userId))
     .orderBy(asc(chatSessions.createdAt));
 
-  const exportData = await Promise.all(
-    sessions.map(async (s) => {
-      const msgs = await db
-        .select()
-        .from(messages)
-        .where(eq(messages.chatSessionId, s.id))
-        .orderBy(asc(messages.createdAt));
+  const sessionIds = sessions.map((s) => s.id);
+  const allMsgs =
+    sessionIds.length > 0
+      ? await db
+          .select()
+          .from(messages)
+          .where(inArray(messages.chatSessionId, sessionIds))
+          .orderBy(asc(messages.createdAt))
+      : [];
 
-      return {
-        session: {
-          id: s.id,
-          title: s.title,
-          createdAt: s.createdAt,
-          updatedAt: s.updatedAt,
-        },
-        messages: msgs.map((m) => ({
-          role: m.role,
-          content: m.content,
-          provider: m.provider,
-          model: m.model,
-          createdAt: m.createdAt,
-        })),
-      };
-    })
-  );
+  const msgsBySession = new Map<string, typeof allMsgs>();
+  for (const m of allMsgs) {
+    const list = msgsBySession.get(m.chatSessionId);
+    if (list) list.push(m);
+    else msgsBySession.set(m.chatSessionId, [m]);
+  }
+
+  const exportData = sessions.map((s) => {
+    const msgs = msgsBySession.get(s.id) ?? [];
+    return {
+      session: {
+        id: s.id,
+        title: s.title,
+        createdAt: s.createdAt,
+        updatedAt: s.updatedAt,
+      },
+      messages: msgs.map((m) => ({
+        role: m.role,
+        content: m.content,
+        provider: m.provider,
+        model: m.model,
+        createdAt: m.createdAt,
+      })),
+    };
+  });
 
   const modelConfigs = await db
     .select({

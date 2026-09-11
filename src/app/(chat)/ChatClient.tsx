@@ -24,6 +24,7 @@ interface ChatClientProps {
     avatarSource?: string | null;
     avatarStyle?: string | null;
     avatarSeed?: string | null;
+    shareProfileWithAi?: boolean | null;
   };
 }
 
@@ -54,6 +55,18 @@ export default function ChatClient({ user }: ChatClientProps) {
   const userModels = useUserModels();
   const { models, selected, select, isLoading: modelsLoading } = userModels;
 
+  // D3: stable callbacks so useChat's sendMessage keeps its identity.
+  const handleSessionCreated = useCallback(
+    (sessionId: string) => {
+      setActiveSessionId(sessionId);
+      refreshSessions();
+    },
+    [refreshSessions]
+  );
+  const handleMessageComplete = useCallback(() => {
+    refreshSessions();
+  }, [refreshSessions]);
+
   const {
     messages,
     truncationIndex,
@@ -69,13 +82,8 @@ export default function ChatClient({ user }: ChatClientProps) {
   } = useChat({
     sessionId: activeSessionId,
     selectedModel: selected,
-    onSessionCreated: (sessionId) => {
-      setActiveSessionId(sessionId);
-      refreshSessions();
-    },
-    onMessageComplete: () => {
-      refreshSessions();
-    },
+    onSessionCreated: handleSessionCreated,
+    onMessageComplete: handleMessageComplete,
   });
 
   useEffect(() => {
@@ -138,6 +146,7 @@ export default function ChatClient({ user }: ChatClientProps) {
   );
 
   const openManageModels = useCallback(() => handleOpenSettings("ai-models"), [handleOpenSettings]);
+  const openProfileSettings = useCallback(() => handleOpenSettings("profile"), [handleOpenSettings]);
 
   const composer = (key: string) => (
     <Composer
@@ -157,6 +166,13 @@ export default function ChatClient({ user }: ChatClientProps) {
 
   return (
     <div className="flex h-dvh bg-bg overflow-hidden">
+      {/* G6: skip link for keyboard / screen-reader users. */}
+      <a
+        href="#chat-main"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[200] focus:bg-surface focus:text-text-primary focus:px-3 focus:py-2 focus:rounded-lg focus:border focus:border-border text-sm"
+      >
+        {t("message.skipToChat")}
+      </a>
       <Sidebar
         sessions={sessions}
         activeSessionId={activeSessionId}
@@ -168,11 +184,11 @@ export default function ChatClient({ user }: ChatClientProps) {
         user={user}
         isCollapsed={isCollapsed}
         onToggleCollapse={handleToggleCollapse}
-        onOpenSettings={() => handleOpenSettings("profile")}
+        onOpenSettings={openProfileSettings}
         onOpenAllChats={handleOpenAllChats}
       />
 
-      <main className="flex-1 flex flex-col min-w-0 min-h-0 relative">
+      <main id="chat-main" tabIndex={-1} className="flex-1 flex flex-col min-w-0 min-h-0 relative focus:outline-none">
         <div className="flex-1 flex flex-col min-h-0 w-full">
           {(() => {
             const activeSession = activeSessionId

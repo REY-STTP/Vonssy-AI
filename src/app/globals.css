@@ -10,8 +10,9 @@
     --border: #E5E2DA;
     --text-primary: #1F1E1C;
     --text-secondary: #6B6862;
-    --accent: #C15F3C;
-    --accent-alpha: rgba(193, 95, 60, 0.15);
+    /* G5: darkened so small accent text passes WCAG AA on light surfaces. */
+    --accent: #A94E2F;
+    --accent-alpha: rgba(169, 78, 47, 0.15);
     --accent-contrast: #FFFFFF;
     --danger: #B3432B;
     --danger-alpha: rgba(179, 67, 43, 0.1);
@@ -146,6 +147,7 @@
     @apply w-full bg-surface text-text-primary placeholder:text-text-secondary
            border border-border rounded-lg
            focus:outline-none focus:border-accent
+           focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 focus-visible:ring-offset-surface
            transition-colors duration-200;
   }
 }
@@ -169,6 +171,11 @@
 
   .text-balance {
     text-wrap: balance;
+  }
+
+  /* D6: chat thread scrolls instantly (no smooth-queue jank). */
+  .chat-scroll {
+    scroll-behavior: auto;
   }
 
   /* Markdown Content Styles */
@@ -266,6 +273,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;

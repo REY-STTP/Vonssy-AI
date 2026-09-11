@@ -40,12 +40,46 @@ export function useChat({
   const [lastUsage, setLastUsage] = useState<TokenUsage | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const currentSessionIdRef = useRef<string | null>(sessionId);
+  // D3: read history via ref so sendMessage stays referentially stable.
+  const messagesRef = useRef<Message[]>(messages);
+  messagesRef.current = messages;
+  // B3: rAF-batched streaming renders (one setState per frame max).
+  const streamTextRef = useRef("");
+  const streamRafRef = useRef<number | null>(null);
+  // D3: real DB ids delivered via the "ids" SSE event.
+  const serverIdsRef = useRef<{ user: string | null; assistant: string | null }>({
+    user: null,
+    assistant: null,
+  });
+
+  const scheduleStreamingFlush = useCallback((full: string) => {
+    streamTextRef.current = full;
+    if (streamRafRef.current !== null) return;
+    streamRafRef.current = requestAnimationFrame(() => {
+      streamRafRef.current = null;
+      setStreamingContent(streamTextRef.current);
+    });
+  }, []);
+
+  const cancelStreamingFlush = useCallback(() => {
+    if (streamRafRef.current !== null) {
+      cancelAnimationFrame(streamRafRef.current);
+      streamRafRef.current = null;
+    }
+    streamTextRef.current = "";
+  }, []);
 
   currentSessionIdRef.current = sessionId;
 
+  const loadAbortRef = useRef<AbortController | null>(null);
+
+  // D4: abortable load — fast session switches can't resolve out of order.
   const loadMessages = useCallback(async (sid: string) => {
+    loadAbortRef.current?.abort();
+    const ctrl = new AbortController();
+    loadAbortRef.current = ctrl;
     try {
-      const res = await fetch(`/api/sessions/${sid}`);
+      const res = await fetch(`/api/sessions/${sid}`, { signal: ctrl.signal });
       if (!res.ok) return;
       const data = await res.json();
       setMessages(
@@ -59,8 +93,11 @@ export function useChat({
           createdAt: m.createdAt as string | null,
         }))
       );
-    } catch {
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return;
       // Silently fail — user can retry
+    } finally {
+      if (loadAbortRef.current === ctrl) loadAbortRef.current = null;
     }
   }, []);
 
@@ -77,18 +114,23 @@ export function useChat({
         toast.error("Add a model first in Settings → AI Models.");
         return;
       }
+      cancelStreamingFlush();
       setStreamingContent("");
       setIsStreaming(true);
+      serverIdsRef.current = { user: null, assistant: null };
 
       if (options?.truncateIndex !== undefined) {
         setTruncationIndex(options.truncateIndex);
       }
 
       let apiMessages: Array<{ role: string; content: string }>;
+      const history = messagesRef.current;
+      // Temp id of the optimistic user bubble (null in truncate flows).
+      let pendingUserId: string | null = null;
 
       if (options?.truncateIndex !== undefined) {
-        const history = messages.slice(0, options.truncateIndex + 1);
-        apiMessages = history.map((m) => ({ role: m.role, content: m.content }));
+        const sliced = history.slice(0, options.truncateIndex + 1);
+        apiMessages = sliced.map((m) => ({ role: m.role, content: m.content }));
 
         if (options.editContent) {
           apiMessages[apiMessages.length - 1].content = options.editContent;
@@ -105,10 +147,11 @@ export function useChat({
           content,
           createdAt: new Date().toISOString(),
         };
+        pendingUserId = tempUserMsg.id;
         setMessages((prev) => [...prev, tempUserMsg]);
 
         apiMessages = [
-          ...messages.map((m) => ({ role: m.role, content: m.content })),
+          ...history.map((m) => ({ role: m.role, content: m.content })),
           { role: "user" as const, content },
         ];
       }
@@ -143,43 +186,80 @@ export function useChat({
 
         const decoder = new TextDecoder();
         let fullAssistantContent = "";
+        // B2: accumulate across TCP chunks; only split on event boundary.
+        let buffer = "";
+
+        const handleEventData = (data: string) => {
+          if (data === "[DONE]") return;
+          try {
+            const parsed = JSON.parse(data);
+
+            if (parsed.type === "session" && parsed.sessionId) {
+              currentSessionIdRef.current = parsed.sessionId;
+              onSessionCreated?.(parsed.sessionId);
+            }
+
+            if (parsed.type === "text" && parsed.content) {
+              fullAssistantContent += parsed.content;
+              scheduleStreamingFlush(fullAssistantContent);
+            }
+
+            if (parsed.type === "done" && parsed.usage) {
+              setLastUsage(parsed.usage);
+            }
+
+            if (parsed.type === "ids") {
+              serverIdsRef.current = {
+                user:
+                  typeof parsed.userMessageId === "string"
+                    ? parsed.userMessageId
+                    : null,
+                assistant:
+                  typeof parsed.assistantMessageId === "string"
+                    ? parsed.assistantMessageId
+                    : null,
+              };
+            }
+
+            if (parsed.type === "error") {
+              toast.error(parsed.error);
+            }
+          } catch {
+            // Skip unparseable events
+          }
+        };
+
+        const consumeBuffer = () => {
+          let sep: number;
+          while ((sep = buffer.indexOf("\n\n")) !== -1) {
+            const rawEvent = buffer.slice(0, sep);
+            buffer = buffer.slice(sep + 2);
+            for (const line of rawEvent.split("\n")) {
+              if (!line.startsWith("data:")) continue;
+              const data = line.slice(5).trim();
+              if (!data) continue;
+              handleEventData(data);
+            }
+          }
+        };
 
         while (true) {
           const { done, value } = await reader.read();
+          if (value) {
+            buffer += decoder.decode(value, { stream: true });
+            consumeBuffer();
+          }
           if (done) break;
-
-          const text = decoder.decode(value, { stream: true });
-          const lines = text.split("\n");
-
-          for (const line of lines) {
-            if (!line.startsWith("data: ")) continue;
-
-            const data = line.slice(6).trim();
-            if (data === "[DONE]") continue;
-
-            try {
-              const parsed = JSON.parse(data);
-
-              if (parsed.type === "session" && parsed.sessionId) {
-                currentSessionIdRef.current = parsed.sessionId;
-                onSessionCreated?.(parsed.sessionId);
-              }
-
-              if (parsed.type === "text" && parsed.content) {
-                fullAssistantContent += parsed.content;
-                setStreamingContent(fullAssistantContent);
-              }
-
-              if (parsed.type === "done" && parsed.usage) {
-                setLastUsage(parsed.usage);
-              }
-
-              if (parsed.type === "error") {
-                toast.error(parsed.error);
-              }
-            } catch {
-              // Skip unparseable chunks
-            }
+        }
+        // Flush any trailing bytes + partial tail event.
+        buffer += decoder.decode();
+        consumeBuffer();
+        if (buffer.trim().startsWith("data:")) {
+          for (const line of buffer.split("\n")) {
+            if (!line.startsWith("data:")) continue;
+            const data = line.slice(5).trim();
+            if (!data) continue;
+            handleEventData(data);
           }
         }
 
@@ -197,7 +277,20 @@ export function useChat({
             const baseMessages = options?.truncateIndex !== undefined
               ? prev.slice(0, options.truncateIndex + 1)
               : prev;
-            return [...baseMessages, assistantMsg];
+            const next = [...baseMessages, assistantMsg];
+            // D3: swap optimistic temp ids for real DB ids (no refetch).
+            const { user: realUserId, assistant: realAssistantId } =
+              serverIdsRef.current;
+            if (!realUserId && !realAssistantId) return next;
+            return next.map((m) => {
+              if (pendingUserId && m.id === pendingUserId && realUserId) {
+                return { ...m, id: realUserId };
+              }
+              if (m.id === assistantMsg.id && realAssistantId) {
+                return { ...m, id: realAssistantId };
+              }
+              return m;
+            });
           });
         }
       } catch (err: unknown) {
@@ -211,25 +304,17 @@ export function useChat({
           );
         }
       } finally {
+        cancelStreamingFlush();
         setStreamingContent("");
         setIsStreaming(false);
         setTruncationIndex(null);
         abortControllerRef.current = null;
         onMessageComplete?.();
-
-        if (currentSessionIdRef.current) {
-          fetch(`/api/sessions/${currentSessionIdRef.current}`)
-            .then((res) => res.json())
-            .then((data) => {
-              if (data.messages && Array.isArray(data.messages)) {
-                setMessages(data.messages);
-              }
-            })
-            .catch(() => {});
-        }
+        // D3: no refetch — the optimistic assistant message above is
+        // authoritative. Server UUIDs arrive on next session load.
       }
     },
-    [messages, selectedModel, onSessionCreated, onMessageComplete]
+    [selectedModel, onSessionCreated, onMessageComplete, cancelStreamingFlush]
   );
 
   const stopGeneration = useCallback(() => {
@@ -240,7 +325,7 @@ export function useChat({
     async (messageId: string, newContent: string) => {
       if (!currentSessionIdRef.current) return;
 
-      const msgIndex = messages.findIndex((m) => m.id === messageId);
+      const msgIndex = messagesRef.current.findIndex((m) => m.id === messageId);
       if (msgIndex === -1) return;
 
       await sendMessage(newContent, {
@@ -249,20 +334,21 @@ export function useChat({
         truncateIndex: msgIndex,
       });
     },
-    [messages, sendMessage]
+    [sendMessage]
   );
 
   const regenerateFrom = useCallback(
     async (messageId: string) => {
       if (!currentSessionIdRef.current) return;
 
-      const msgIndex = messages.findIndex((m) => m.id === messageId);
+      const msgs = messagesRef.current;
+      const msgIndex = msgs.findIndex((m) => m.id === messageId);
       if (msgIndex === -1) return;
 
-      const targetMessage = messages[msgIndex];
+      const targetMessage = msgs[msgIndex];
 
       if (targetMessage.role === "assistant") {
-        const userMessage = messages[msgIndex - 1];
+        const userMessage = msgs[msgIndex - 1];
         if (!userMessage || userMessage.role !== "user") return;
 
         await sendMessage(userMessage.content, {
@@ -276,14 +362,15 @@ export function useChat({
         });
       }
     },
-    [messages, sendMessage]
+    [sendMessage]
   );
 
   const clearMessages = useCallback(() => {
+    cancelStreamingFlush();
     setMessages([]);
     setStreamingContent("");
     setLastUsage(null);
-  }, []);
+  }, [cancelStreamingFlush]);
 
   const setFeedback = useCallback(
     async (messageId: string, feedback: "like" | "dislike" | null) => {

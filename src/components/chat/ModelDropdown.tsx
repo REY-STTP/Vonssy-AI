@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import type { UserModelConfig } from "@/hooks/useUserModels";
 import { useLocale } from "@/hooks/useLocale";
 
@@ -44,6 +44,7 @@ export default function ModelDropdown({
 }: ModelDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const { t } = useLocale();
 
   useEffect(() => {
@@ -62,6 +63,7 @@ export default function ModelDropdown({
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setIsOpen(false);
+        triggerRef.current?.focus();
       }
     };
     if (isOpen) {
@@ -69,6 +71,33 @@ export default function ModelDropdown({
     }
     return () => document.removeEventListener("keydown", handleEscape);
   }, [isOpen]);
+
+  // G2: APG listbox keyboard — arrows/Home/End move between options.
+  const focusOption = useCallback((index: number) => {
+    const options = dropdownRef.current?.querySelectorAll<HTMLElement>('[role="option"]');
+    if (!options || options.length === 0) return;
+    const clamped = Math.max(0, Math.min(index, options.length - 1));
+    options[clamped].focus();
+  }, []);
+
+  const handleListKeyDown = (e: React.KeyboardEvent) => {
+    const options = dropdownRef.current?.querySelectorAll<HTMLElement>('[role="option"]');
+    if (!options || options.length === 0) return;
+    const current = Array.from(options).indexOf(document.activeElement as HTMLElement);
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      focusOption(current < 0 ? 0 : current + 1);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      focusOption(current < 0 ? options.length - 1 : current - 1);
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      focusOption(0);
+    } else if (e.key === "End") {
+      e.preventDefault();
+      focusOption(options.length - 1);
+    }
+  };
 
   const grouped = useMemo(() => {
     const acc: Record<string, UserModelConfig[]> = {};
@@ -86,6 +115,7 @@ export default function ModelDropdown({
     <div className="relative" ref={dropdownRef}>
       <button
         type="button"
+        ref={triggerRef}
         onClick={() => setIsOpen(!isOpen)}
         disabled={isStreaming || isLoading}
         className={`flex items-center gap-1 p-1.5 rounded-md text-text-secondary hover:bg-surface-raised hover:text-text-primary transition-colors ${
@@ -107,7 +137,12 @@ export default function ModelDropdown({
       </button>
 
       {isOpen && (
-        <div className="absolute bottom-full left-0 mb-5 w-72 max-h-64 overflow-y-auto bg-surface border border-border rounded-xl shadow-dropdown p-2 animate-dropdown-enter z-50">
+        <div
+          role="listbox"
+          aria-label={t("model.select")}
+          onKeyDown={handleListKeyDown}
+          className="absolute bottom-full left-0 mb-5 w-72 max-h-64 overflow-y-auto bg-surface border border-border rounded-xl shadow-dropdown p-2 animate-dropdown-enter z-50"
+        >
           {isLoading ? (
             <div className="px-3 py-4 text-[13px] text-text-secondary">{t("models.loading")}</div>
           ) : models.length === 0 ? (

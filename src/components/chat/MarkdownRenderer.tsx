@@ -1,10 +1,53 @@
 "use client";
 
-import React, { useMemo, useCallback } from "react";
+import React, { useMemo, useCallback, memo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { PrismLight as SyntaxHighlighter } from "react-syntax-highlighter";
+import markup from "react-syntax-highlighter/dist/esm/languages/prism/markup";
+import javascript from "react-syntax-highlighter/dist/esm/languages/prism/javascript";
+import typescript from "react-syntax-highlighter/dist/esm/languages/prism/typescript";
+import jsx from "react-syntax-highlighter/dist/esm/languages/prism/jsx";
+import tsx from "react-syntax-highlighter/dist/esm/languages/prism/tsx";
+import python from "react-syntax-highlighter/dist/esm/languages/prism/python";
+import sql from "react-syntax-highlighter/dist/esm/languages/prism/sql";
+import bash from "react-syntax-highlighter/dist/esm/languages/prism/bash";
+import json from "react-syntax-highlighter/dist/esm/languages/prism/json";
+import markdownLang from "react-syntax-highlighter/dist/esm/languages/prism/markdown";
 import { useLocale } from "@/hooks/useLocale";
+
+// B4: light build + only popular languages (deps first: markup →
+// javascript/jsx/typescript → tsx).
+SyntaxHighlighter.registerLanguage("markup", markup);
+SyntaxHighlighter.registerLanguage("javascript", javascript);
+SyntaxHighlighter.registerLanguage("jsx", jsx);
+SyntaxHighlighter.registerLanguage("typescript", typescript);
+SyntaxHighlighter.registerLanguage("tsx", tsx);
+SyntaxHighlighter.registerLanguage("python", python);
+SyntaxHighlighter.registerLanguage("sql", sql);
+SyntaxHighlighter.registerLanguage("bash", bash);
+SyntaxHighlighter.registerLanguage("json", json);
+SyntaxHighlighter.registerLanguage("markdown", markdownLang);
+
+const HIGHLIGHTED_LANGUAGES = new Set([
+  "markup", "html", "xml",
+  "javascript", "js",
+  "jsx",
+  "typescript", "ts",
+  "tsx",
+  "python", "py",
+  "sql",
+  "bash", "sh", "shell",
+  "json",
+  "markdown", "md",
+]);
+
+// E2: LLM output is untrusted — only http(s)/mailto links activate.
+// Blocks javascript:/data: URLs from prompt-injected markdown.
+function safeUrl(url: string | undefined): string {
+  if (url && /^(https?:|mailto:)/i.test(url.trim())) return url;
+  return "#";
+}
 
 /**
  * Custom dark theme matching the Vonssy palette.
@@ -27,10 +70,10 @@ const vonssyTheme: Record<string, React.CSSProperties> = {
     fontFamily: "var(--font-jetbrains), monospace",
     fontSize: "0.85rem",
   },
-  comment: { color: "#4A4458" },
-  prolog: { color: "#4A4458" },
-  doctype: { color: "#4A4458" },
-  cdata: { color: "#4A4458" },
+  comment: { color: "#9AA0B5" },
+  prolog: { color: "#9AA0B5" },
+  doctype: { color: "#9AA0B5" },
+  cdata: { color: "#9AA0B5" },
   punctuation: { color: "#8B8599" },
   property: { color: "#E2A63B" },
   tag: { color: "#E2A63B" },
@@ -38,7 +81,7 @@ const vonssyTheme: Record<string, React.CSSProperties> = {
   number: { color: "#E2A63B" },
   constant: { color: "#E2A63B" },
   symbol: { color: "#E2A63B" },
-  deleted: { color: "#9E2B3E" },
+  deleted: { color: "#E06A4C" },
   selector: { color: "#7EC699" },
   "attr-name": { color: "#7EC699" },
   string: { color: "#7EC699" },
@@ -84,7 +127,7 @@ interface MarkdownRendererProps {
   content: string;
 }
 
-export default function MarkdownRenderer({ content }: MarkdownRendererProps) {
+function MarkdownRenderer({ content }: MarkdownRendererProps) {
   const components = useMemo(
     () => ({
       code({
@@ -96,7 +139,7 @@ export default function MarkdownRenderer({ content }: MarkdownRendererProps) {
         const codeString = String(children).replace(/\n$/, "");
 
         // Block code with language
-        if (match) {
+        if (match && HIGHLIGHTED_LANGUAGES.has(match[1].toLowerCase())) {
           return (
             <div className="my-5 border border-border rounded-lg overflow-hidden bg-surface shadow-soft">
               <div className="flex items-center justify-between px-4 py-2 bg-surface-raised border-b border-border text-xs font-mono text-text-secondary">
@@ -114,15 +157,15 @@ export default function MarkdownRenderer({ content }: MarkdownRendererProps) {
           );
         }
 
-        // Block code without language
-        if (codeString.includes("\n")) {
+        // Block code without language (or unregistered language) — plain <pre>
+        if (codeString.includes("\n") || match) {
           return (
             <div className="my-5 border border-border rounded-lg overflow-hidden bg-surface shadow-soft">
               <div className="flex items-center justify-between px-4 py-2 bg-surface-raised border-b border-border text-xs font-mono text-text-secondary">
-                <span>text</span>
+                <span>{match?.[1] ?? "text"}</span>
                 <CopyButton text={codeString} />
               </div>
-              <pre className="p-4 overflow-auto font-mono text-sm text-bone bg-transparent m-0">
+              <pre className="p-4 overflow-auto font-mono text-sm text-text-primary bg-transparent m-0">
                 <code>{codeString}</code>
               </pre>
             </div>
@@ -132,7 +175,7 @@ export default function MarkdownRenderer({ content }: MarkdownRendererProps) {
         // Inline code
         return (
           <code
-            className="px-1.5 py-0.5 bg-wraith/20 text-ember font-mono text-[0.85em] rounded-md"
+            className="px-1.5 py-0.5 bg-surface-raised border border-border text-text-primary font-mono text-[0.85em] rounded-md"
             {...props}
           >
             {children}
@@ -145,20 +188,21 @@ export default function MarkdownRenderer({ content }: MarkdownRendererProps) {
           {children}
         </p>
       ),
+      // G5: AI headings demoted one level so page outline stays valid.
       h1: ({ children, ...props }: React.ComponentPropsWithoutRef<"h1">) => (
-        <h1 className="text-xl font-display font-bold text-ember mb-3 mt-4" {...props}>
-          {children}
-        </h1>
-      ),
-      h2: ({ children, ...props }: React.ComponentPropsWithoutRef<"h2">) => (
-        <h2 className="text-lg font-display font-bold text-bone mb-2 mt-3" {...props}>
+        <h2 className="text-xl font-display font-bold text-text-primary mb-3 mt-4" {...props}>
           {children}
         </h2>
       ),
-      h3: ({ children, ...props }: React.ComponentPropsWithoutRef<"h3">) => (
-        <h3 className="text-base font-reading font-bold text-bone mb-2 mt-3" {...props}>
+      h2: ({ children, ...props }: React.ComponentPropsWithoutRef<"h2">) => (
+        <h3 className="text-lg font-display font-bold text-text-primary mb-2 mt-3" {...props}>
           {children}
         </h3>
+      ),
+      h3: ({ children, ...props }: React.ComponentPropsWithoutRef<"h3">) => (
+        <h4 className="text-base font-reading font-bold text-text-primary mb-2 mt-3" {...props}>
+          {children}
+        </h4>
       ),
       ul: ({ children, ...props }: React.ComponentPropsWithoutRef<"ul">) => (
         <ul className="mb-3 ml-4 list-disc list-outside space-y-1" {...props}>
@@ -177,7 +221,7 @@ export default function MarkdownRenderer({ content }: MarkdownRendererProps) {
       ),
       blockquote: ({ children, ...props }: React.ComponentPropsWithoutRef<"blockquote">) => (
         <blockquote
-          className="border-l-3 border-ember pl-4 my-3 text-bone/80 italic"
+          className="border-l-4 border-accent pl-4 my-3 text-text-secondary italic"
           {...props}
         >
           {children}
@@ -186,7 +230,7 @@ export default function MarkdownRenderer({ content }: MarkdownRendererProps) {
       a: ({ children, href, ...props }: React.ComponentPropsWithoutRef<"a">) => (
         <a
           href={href}
-          className="text-ember underline underline-offset-2 hover:text-bone transition-colors"
+          className="text-accent underline underline-offset-2 hover:text-text-primary transition-colors"
           target="_blank"
           rel="noopener noreferrer"
           {...props}
@@ -196,46 +240,63 @@ export default function MarkdownRenderer({ content }: MarkdownRendererProps) {
       ),
       table: ({ children, ...props }: React.ComponentPropsWithoutRef<"table">) => (
         <div className="overflow-x-auto my-3">
-          <table className="w-full border-2 border-wraith text-sm" {...props}>
+          <table className="w-full border-2 border-border text-sm" {...props}>
             {children}
           </table>
         </div>
       ),
       th: ({ children, ...props }: React.ComponentPropsWithoutRef<"th">) => (
         <th
-          className="border border-wraith px-3 py-1.5 text-left font-semibold bg-ink text-ember"
+          className="border border-border px-3 py-1.5 text-left font-semibold bg-surface-raised text-accent"
           {...props}
         >
           {children}
         </th>
       ),
       td: ({ children, ...props }: React.ComponentPropsWithoutRef<"td">) => (
-        <td className="border border-wraith px-3 py-1.5" {...props}>
+        <td className="border border-border px-3 py-1.5" {...props}>
           {children}
         </td>
       ),
       hr: (props: React.ComponentPropsWithoutRef<"hr">) => (
-        <hr className="border-wraith my-4" {...props} />
+        <hr className="border-border my-4" {...props} />
       ),
       strong: ({ children, ...props }: React.ComponentPropsWithoutRef<"strong">) => (
-        <strong className="font-bold text-bone" {...props}>
+        <strong className="font-bold text-text-primary" {...props}>
           {children}
         </strong>
       ),
       em: ({ children, ...props }: React.ComponentPropsWithoutRef<"em">) => (
-        <em className="italic text-bone/90" {...props}>
+        <em className="italic text-text-primary" {...props}>
           {children}
         </em>
+      ),
+      // E2: external images never leak referrer / act as trackers silently.
+      img: ({ src, alt, ...props }: React.ComponentPropsWithoutRef<"img">) => (
+        <img
+          src={typeof src === "string" ? safeUrl(src) : src}
+          alt={alt ?? ""}
+          referrerPolicy="no-referrer"
+          loading="lazy"
+          className="rounded-lg max-w-full"
+          {...props}
+        />
       ),
     }),
     []
   );
 
   return (
-    <div className="markdown-content text-bone font-reading text-sm leading-relaxed">
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+    <div className="markdown-content text-text-primary font-reading text-sm leading-relaxed">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={components}
+        urlTransform={safeUrl}
+      >
         {content}
       </ReactMarkdown>
     </div>
   );
 }
+
+export default memo(MarkdownRenderer);

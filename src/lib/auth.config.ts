@@ -8,10 +8,9 @@ import GitHub from "next-auth/providers/github";
  * (adapters cannot run on the Edge runtime).
  */
 export const authConfig: NextAuthConfig = {
-  providers: [
-    Google({ allowDangerousEmailAccountLinking: true }),
-    GitHub({ allowDangerousEmailAccountLinking: true }),
-  ],
+  // E4: no allowDangerousEmailAccountLinking — unverified provider
+  // emails must never auto-link into an existing account (takeover).
+  providers: [Google({}), GitHub({})],
 
   pages: {
     signIn: "/login",

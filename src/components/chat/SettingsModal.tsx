@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { useReadingFont, type ReadingFont } from "@/hooks/useReadingFont";
 import { useLocale, type Locale } from "@/hooks/useLocale";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 import UserAvatar, { generateAvatarUri } from "@/components/UserAvatar";
 import type { useUserModels } from "@/hooks/useUserModels";
 
@@ -27,6 +28,7 @@ interface SettingsModalProps {
     avatarSource?: string | null;
     avatarStyle?: string | null;
     avatarSeed?: string | null;
+    shareProfileWithAi?: boolean | null;
   };
   initialTab?: SettingsTab;
   userModels: ReturnType<typeof useUserModels>;
@@ -64,7 +66,7 @@ const NAV_ICONS: Record<SubMenu, React.ReactNode> = {
 function ProviderIcon({ provider }: { provider: string }) {
   if (provider === "google") {
     return (
-      <svg width="12" height="12" viewBox="0 0 24 24">
+      <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
         <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />
         <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
         <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
@@ -74,7 +76,7 @@ function ProviderIcon({ provider }: { provider: string }) {
   }
   if (provider === "github") {
     return (
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
         <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z" />
       </svg>
     );
@@ -177,30 +179,30 @@ function AiModelsTab({ userModels }: { userModels: ReturnType<typeof useUserMode
   const formFields = (
     <>
       <div>
-        <label className="text-[12px] font-medium text-text-secondary">{t("models.label")}</label>
-        <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder={t("models.labelPlaceholder")} maxLength={80} className="input-base mt-1 w-full text-sm" />
+        <label htmlFor="aimodel-label" className="text-[12px] font-medium text-text-secondary">{t("models.label")}</label>
+        <input id="aimodel-label" value={label} onChange={(e) => setLabel(e.target.value)} placeholder={t("models.labelPlaceholder")} maxLength={80} className="input-base mt-1 w-full text-sm" />
       </div>
       <div>
-        <label className="text-[12px] font-medium text-text-secondary">{t("models.baseUrl")}</label>
-        <input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder={t("models.baseUrlPlaceholder")} inputMode="url" className="input-base mt-1 w-full text-sm font-mono" />
-        <p className="text-[11px] text-text-secondary mt-1">{t("models.baseUrlHelp")}</p>
+        <label htmlFor="aimodel-baseurl" className="text-[12px] font-medium text-text-secondary">{t("models.baseUrl")}</label>
+        <input id="aimodel-baseurl" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder={t("models.baseUrlPlaceholder")} inputMode="url" aria-describedby="aimodel-baseurl-help" className="input-base mt-1 w-full text-sm font-mono" />
+        <p id="aimodel-baseurl-help" className="text-[11px] text-text-secondary mt-1">{t("models.baseUrlHelp")}</p>
       </div>
       <div>
-        <label className="text-[12px] font-medium text-text-secondary">{t("models.apiKey")}</label>
+        <label htmlFor="aimodel-apikey" className="text-[12px] font-medium text-text-secondary">{t("models.apiKey")}</label>
         <div className="flex gap-2 mt-1">
-          <input value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder={editingId ? "••••" : t("models.apiKeyPlaceholder")} type={showKey ? "text" : "password"} autoComplete="off" className="input-base w-full text-sm font-mono" />
+          <input id="aimodel-apikey" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder={editingId ? "••••" : t("models.apiKeyPlaceholder")} type={showKey ? "text" : "password"} autoComplete="off" aria-describedby="aimodel-apikey-help" className="input-base w-full text-sm font-mono" />
           <button type="button" onClick={() => setShowKey((v) => !v)} className="btn-ghost text-[12px] px-2 shrink-0">
             {showKey ? "Hide" : "Show"}
           </button>
         </div>
-        <p className="text-[11px] text-text-secondary mt-1">{t("models.apiKeyHelp")}</p>
+        <p id="aimodel-apikey-help" className="text-[11px] text-text-secondary mt-1">{t("models.apiKeyHelp")}</p>
       </div>
       <div>
-        <label className="text-[12px] font-medium text-text-secondary">{t("models.modelId")}</label>
-        <input value={modelId} onChange={(e) => setModelId(e.target.value)} placeholder={t("models.modelIdPlaceholder")} maxLength={200} className="input-base mt-1 w-full text-sm font-mono" />
-        <p className="text-[11px] text-text-secondary mt-1">{t("models.modelIdHelp")}</p>
+        <label htmlFor="aimodel-model" className="text-[12px] font-medium text-text-secondary">{t("models.modelId")}</label>
+        <input id="aimodel-model" value={modelId} onChange={(e) => setModelId(e.target.value)} placeholder={t("models.modelIdPlaceholder")} maxLength={200} aria-describedby="aimodel-model-help" className="input-base mt-1 w-full text-sm font-mono" />
+        <p id="aimodel-model-help" className="text-[11px] text-text-secondary mt-1">{t("models.modelIdHelp")}</p>
       </div>
-      {formError && <p className="text-[13px] text-danger break-words whitespace-pre-wrap">{formError}</p>}
+      {formError && <p role="alert" className="text-[13px] text-danger break-words whitespace-pre-wrap">{formError}</p>}
       <div className="flex gap-2 justify-end">
         <button type="button" onClick={closeForm} className="btn-ghost text-sm px-4 py-1.5">
           {t("models.cancel")}
@@ -259,7 +261,7 @@ function AiModelsTab({ userModels }: { userModels: ReturnType<typeof useUserMode
                 <span className="text-[12px] text-text-primary font-mono truncate min-w-0" title={m.model}>{m.model}</span>
               </div>
               {testMsg?.id === m.id && (
-                <p className={`text-[12px] leading-relaxed break-words whitespace-pre-wrap min-w-0 ${testMsg.ok ? "text-emerald-600 dark:text-emerald-400" : "text-danger"}`}>{testMsg.text}</p>
+                <p role={testMsg.ok ? "status" : "alert"} className={`text-[12px] leading-relaxed break-words whitespace-pre-wrap min-w-0 ${testMsg.ok ? "text-emerald-600 dark:text-emerald-400" : "text-danger"}`}>{testMsg.text}</p>
               )}
               {deleteId === m.id && (
                 <div className="flex items-center gap-2 pt-1">
@@ -355,7 +357,8 @@ export default function SettingsModal({ isOpen, onClose, user, initialTab = "pro
     setMounted(true);
   }, []);
 
-  // Store previous focus and trap focus in modal
+  // Store previous focus and trap focus in modal (G1: Tab trap via shared hook)
+  useFocusTrap(modalRef, isOpen);
   useEffect(() => {
     if (isOpen) {
       previousFocusRef.current = document.activeElement as HTMLElement;
@@ -418,6 +421,32 @@ export default function SettingsModal({ isOpen, onClose, user, initialTab = "pro
     setDobPersisted(user.dateOfBirth ?? "");
   }, [user.dateOfBirth]);
 
+  // E5: share-profile opt-in toggle state
+  const [shareProfile, setShareProfile] = useState(user.shareProfileWithAi ?? false);
+  const [shareSaving, setShareSaving] = useState(false);
+  useEffect(() => {
+    setShareProfile(user.shareProfileWithAi ?? false);
+  }, [user.shareProfileWithAi]);
+
+  const toggleShareProfile = useCallback(async () => {
+    const next = !shareProfile;
+    setShareProfile(next);
+    setShareSaving(true);
+    try {
+      const res = await fetch("/api/user/share-profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shareProfileWithAi: next }),
+      });
+      if (!res.ok) throw new Error();
+      router.refresh();
+    } catch {
+      setShareProfile(!next);
+    } finally {
+      setShareSaving(false);
+    }
+  }, [shareProfile, router]);
+
   const handleOverlayClick = useCallback((e: React.MouseEvent) => {
     if (e.target === e.currentTarget) {
       onClose();
@@ -461,6 +490,35 @@ export default function SettingsModal({ isOpen, onClose, user, initialTab = "pro
   const selectMenu = useCallback((menu: SubMenu) => {
     setActiveMenu(menu);
   }, []);
+
+  // G2: APG tab keyboard — arrows/Home/End move between settings tabs.
+  const handleTabKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      const ids: SubMenu[] = ["profile", "ai-models", "appearance", "data"];
+      const idx = ids.indexOf(activeMenu);
+      let next: number | null = null;
+      if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+        next = (idx + 1) % ids.length;
+      } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+        next = (idx - 1 + ids.length) % ids.length;
+      } else if (e.key === "Home") {
+        next = 0;
+      } else if (e.key === "End") {
+        next = ids.length - 1;
+      }
+      if (next !== null) {
+        e.preventDefault();
+        selectMenu(ids[next]);
+        const target = ids[next];
+        requestAnimationFrame(() => {
+          document
+            .querySelector<HTMLElement>(`[data-settings-tab="${target}"]`)
+            ?.focus();
+        });
+      }
+    },
+    [activeMenu, selectMenu]
+  );
 
   // Save preferred name on blur / Enter
   const savePreferredName = useCallback(async () => {
@@ -728,6 +786,8 @@ export default function SettingsModal({ isOpen, onClose, user, initialTab = "pro
             )}
             <input
               type="text"
+              id="profile-preferred-name"
+              aria-label={t("profile.preferredName")}
               value={nickValue}
               onChange={(e) => {
                 setNickValue(e.target.value);
@@ -745,7 +805,7 @@ export default function SettingsModal({ isOpen, onClose, user, initialTab = "pro
           </div>
         </div>
         {nickStatus === "error" && nickError && (
-          <p className="text-[13px] text-danger mt-1.5 text-right">{nickError}</p>
+          <p role="alert" className="text-[13px] text-danger mt-1.5 text-right">{nickError}</p>
         )}
       </div>
 
@@ -770,6 +830,7 @@ export default function SettingsModal({ isOpen, onClose, user, initialTab = "pro
               <input
                 ref={dobInputRef}
                 type="date"
+                aria-label={t("profile.dateOfBirth")}
                 value={dobValue}
                 onChange={(e) => {
                   setDobValue(e.target.value);
@@ -786,11 +847,12 @@ export default function SettingsModal({ isOpen, onClose, user, initialTab = "pro
                 }}
                 max={new Date().toISOString().split("T")[0]}
                 min="1900-01-01"
-                className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10"
-                tabIndex={-1}
+                className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10 focus-visible:opacity-100"
               />
               <button
                 type="button"
+                tabIndex={-1}
+                aria-hidden="true"
                 onClick={() => {
                   const input = dobInputRef.current;
                   if (input) {
@@ -828,8 +890,29 @@ export default function SettingsModal({ isOpen, onClose, user, initialTab = "pro
           </div>
         </div>
         {dobStatus === "error" && dobError && (
-          <p className="text-[13px] text-danger mt-1.5 text-right">{dobError}</p>
+          <p role="alert" className="text-[13px] text-danger mt-1.5 text-right">{dobError}</p>
         )}
+      </div>
+
+      <div className="border-t border-border" />
+
+      {/* Share profile with AI (E5 opt-in, default off) */}
+      <div>
+        <div className="flex items-center justify-between gap-3 text-[13px]">
+          <span id="share-profile-label" className="text-text-secondary">{t("profile.shareProfile")}</span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={shareProfile}
+            aria-labelledby="share-profile-label"
+            disabled={shareSaving}
+            onClick={toggleShareProfile}
+            className={`relative w-10 h-[22px] rounded-full transition-colors shrink-0 disabled:opacity-50 ${shareProfile ? "bg-accent" : "bg-border"}`}
+          >
+            <span className={`absolute top-[3px] h-4 w-4 rounded-full bg-white transition-all ${shareProfile ? "left-[22px]" : "left-[3px]"}`} />
+          </button>
+        </div>
+        <p className="text-[11px] text-text-secondary mt-1">{t("profile.shareProfileDesc")}</p>
       </div>
 
       <div className="border-t border-border" />
@@ -842,7 +925,6 @@ export default function SettingsModal({ isOpen, onClose, user, initialTab = "pro
 
       <div className="border-t border-border" />
 
-      {/* Provider */}
       {user.provider && (
         <>
           <div className="flex items-center justify-between text-[13px]">
@@ -958,6 +1040,8 @@ export default function SettingsModal({ isOpen, onClose, user, initialTab = "pro
       <div className="flex items-center justify-between">
         <div className="text-[13px] font-semibold text-text-primary">{t("appearance.messageFont")}</div>
         <select
+          id="appearance-font"
+          aria-label={t("appearance.messageFont")}
           value={readingFont}
           onChange={(e) => setReadingFont(e.target.value as ReadingFont)}
           className="bg-surface-raised border border-border rounded-lg text-[13px] font-medium text-text-primary py-1.5 px-2.5 pr-8 focus:border-accent focus:outline-none transition-colors appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2216%22%20fill%3D%22none%22%20stroke%3D%22%239C978E%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%224%206%208%2010%2012%206%22%2F%3E%3C%2Fsvg%3E')] bg-[length:16px] bg-[right_6px_center] bg-no-repeat"
@@ -978,6 +1062,8 @@ export default function SettingsModal({ isOpen, onClose, user, initialTab = "pro
       <div className="flex items-center justify-between">
         <div className="text-[13px] font-semibold text-text-primary">{t("appearance.language")}</div>
         <select
+          id="appearance-language"
+          aria-label={t("appearance.language")}
           value={locale}
           onChange={(e) => setLocale(e.target.value as Locale)}
           className="bg-surface-raised border border-border rounded-lg text-[13px] font-medium text-text-primary py-1.5 px-2.5 pr-8 focus:border-accent focus:outline-none transition-colors appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2216%22%20fill%3D%22none%22%20stroke%3D%22%239C978E%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%224%206%208%2010%2012%206%22%2F%3E%3C%2Fsvg%3E')] bg-[length:16px] bg-[right_6px_center] bg-no-repeat"
@@ -1076,11 +1162,20 @@ export default function SettingsModal({ isOpen, onClose, user, initialTab = "pro
             </div>
             
             {/* Tab Strip */}
-            <div className="flex px-4 pb-2 gap-2 overflow-x-auto no-scrollbar">
+            <div
+              role="tablist"
+              aria-label={t("settings.title")}
+              onKeyDown={handleTabKeyDown}
+              className="flex px-4 pb-2 gap-2 overflow-x-auto no-scrollbar"
+            >
               {NAV_ITEMS.map((item) => (
                 <button
                   key={item.id}
                   type="button"
+                  role="tab"
+                  aria-selected={activeMenu === item.id}
+                  tabIndex={activeMenu === item.id ? 0 : -1}
+                  data-settings-tab={item.id}
                   onClick={() => selectMenu(item.id)}
                   className={`flex items-center whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-colors ${
                     activeMenu === item.id
@@ -1112,11 +1207,21 @@ export default function SettingsModal({ isOpen, onClose, user, initialTab = "pro
             </div>
 
             {/* Nav items */}
-            <nav className="flex-1 px-3 space-y-1">
+            <nav
+              role="tablist"
+              aria-label={t("settings.title")}
+              aria-orientation="vertical"
+              onKeyDown={handleTabKeyDown}
+              className="flex-1 px-3 space-y-1"
+            >
               {NAV_ITEMS.map((item) => (
                 <button
                   key={item.id}
                   type="button"
+                  role="tab"
+                  aria-selected={activeMenu === item.id}
+                  tabIndex={activeMenu === item.id ? 0 : -1}
+                  data-settings-tab={item.id}
                   onClick={() => selectMenu(item.id)}
                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-[10px] text-sm font-medium transition-colors ${
                     activeMenu === item.id
@@ -1133,7 +1238,11 @@ export default function SettingsModal({ isOpen, onClose, user, initialTab = "pro
 
           {/* ── Right column / content ─────────────────────── */}
           <div className="flex-1 overflow-y-auto">
-            <div className="p-6 md:p-8 md:pt-8 pt-4 animate-fade-in max-w-2xl mx-auto">
+            <div
+              role="tabpanel"
+              aria-label={NAV_ITEMS.find((i) => i.id === activeMenu)?.label ?? t("settings.title")}
+              className="p-6 md:p-8 md:pt-8 pt-4 animate-fade-in max-w-2xl mx-auto"
+            >
               {contentMap[activeMenu]}
             </div>
           </div>

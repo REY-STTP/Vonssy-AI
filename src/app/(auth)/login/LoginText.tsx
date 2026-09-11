@@ -26,3 +26,18 @@ export function LoginFooter() {
   const { t } = useLocale();
   return <>{t("login.footer")}</>;
 }
+
+export function LoginAboutLabel() {
+  const { t } = useLocale();
+  return <>{t("login.about")}</>;
+}
+
+export function LoginPrivacyLabel() {
+  const { t } = useLocale();
+  return <>{t("login.privacy")}</>;
+}
+
+export function LoginTermsLabel() {
+  const { t } = useLocale();
+  return <>{t("login.terms")}</>;
+}

@@ -1,0 +1,17 @@
+# VonssyAI
+
+> BYOK multi-model chat. Bring your own OpenAI-compatible API keys.
+
+VonssyAI is a chat app that talks to multiple AI models through one unified
+interface. Users connect their own endpoints (base URL + API key + model ID)
+under Settings → AI Gateways. Keys are encrypted at rest (AES-256-GCM).
+
+- Public entry: /login
+- About + FAQ: /about
+- Privacy Policy: /privacy
+- Terms of Service: /terms
+- Sitemap: /sitemap.xml
+
+Chat sessions (/) and all /api/* routes require sign-in (Google/GitHub OAuth)
+and are excluded from indexing. Crawlers and AI assistants should not attempt
+to access authenticated routes.

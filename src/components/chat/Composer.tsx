@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, KeyboardEvent } from "react";
+import { useState, useRef, useEffect, memo, KeyboardEvent } from "react";
 import ModelDropdown from "./ModelDropdown";
 import type { UserModelConfig } from "@/hooks/useUserModels";
 import { useLocale } from "@/hooks/useLocale";
@@ -19,7 +19,7 @@ interface ComposerProps {
   onReasoningChange?: (effort: "low" | "medium" | "high") => void;
 }
 
-export default function Composer({
+function Composer({
   models,
   selectedModel,
   onModelSelect,
@@ -36,6 +36,7 @@ export default function Composer({
   const [showReasoningMenu, setShowReasoningMenu] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const reasoningMenuRef = useRef<HTMLDivElement>(null);
+  const reasoningTriggerRef = useRef<HTMLButtonElement>(null);
   const { t } = useLocale();
 
   useEffect(() => {
@@ -60,10 +61,20 @@ export default function Composer({
         setShowReasoningMenu(false);
       }
     };
+    const handleEscape = (e: globalThis.KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setShowReasoningMenu(false);
+        reasoningTriggerRef.current?.focus();
+      }
+    };
     if (showReasoningMenu) {
       document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("keydown", handleEscape);
     }
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
   }, [showReasoningMenu]);
 
   const noModel = !selectedModel;
@@ -89,7 +100,7 @@ export default function Composer({
   return (
     <div className="w-full px-4 pb-6 pt-2 bg-bg animate-fade-slide-in">
       <div className="flex flex-col max-w-3xl mx-auto gap-2">
-        <div className="flex items-center gap-2 bg-surface border border-border rounded-[16px] shadow-soft p-2 transition-all">
+        <div className="flex items-center gap-2 bg-surface border border-border rounded-[16px] shadow-soft p-2 transition-all focus-within:ring-2 focus-within:ring-accent focus-within:border-accent">
 
           <div className="shrink-0 z-20">
             <ModelDropdown
@@ -111,6 +122,7 @@ export default function Composer({
               placeholder={noModel ? t("models.needModel") : t("composer.placeholder")}
               disabled={disabled || isStreaming || noModel}
               rows={1}
+              aria-keyshortcuts="Enter"
               className="w-full bg-transparent text-text-primary placeholder:text-text-secondary text-[15px] resize-none focus:outline-none min-h-[32px] max-h-[200px] leading-relaxed py-[4px] overflow-y-auto"
               style={{ scrollbarWidth: 'none' }}
               aria-label={t("composer.inputLabel")}
@@ -121,12 +133,16 @@ export default function Composer({
             <div className="relative" ref={reasoningMenuRef}>
               <button
                 type="button"
+                ref={reasoningTriggerRef}
                 disabled={isStreaming}
                 onClick={() => setShowReasoningMenu((p) => !p)}
                 className={`flex items-center justify-center p-1.5 rounded-md text-text-secondary hover:bg-surface-raised hover:text-text-primary transition-colors ${
                   isStreaming ? "opacity-50 cursor-not-allowed" : ""
                 } ${showReasoningMenu ? "bg-surface-raised text-text-primary" : ""}`}
                 title={t("composer.reasoningLabel")}
+                aria-label={t("composer.reasoningLabel")}
+                aria-haspopup="menu"
+                aria-expanded={showReasoningMenu}
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z" />
@@ -139,11 +155,17 @@ export default function Composer({
                 )}
               </button>
               {showReasoningMenu && (
-                <div className="absolute bottom-full right-0 mb-5 w-32 bg-surface border border-border rounded-lg shadow-dropdown overflow-hidden animate-fade-in z-50">
+                <div
+                  role="menu"
+                  aria-label={t("composer.reasoningLabel")}
+                  className="absolute bottom-full right-0 mb-5 w-32 bg-surface border border-border rounded-lg shadow-dropdown overflow-hidden animate-fade-in z-50"
+                >
                   {(["low", "medium", "high"] as const).map((level) => (
                     <button
                       key={level}
                       type="button"
+                      role="menuitemradio"
+                      aria-checked={reasoningEffort === level}
                       onClick={() => {
                         onReasoningChange?.(level);
                         setShowReasoningMenu(false);
@@ -188,6 +210,8 @@ export default function Composer({
     </div>
   );
 }
+
+export default memo(Composer);
 
 function SendIcon() {
   return (

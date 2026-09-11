@@ -2,14 +2,20 @@ import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db/client";
 import { chatSessions } from "@/lib/db/schema";
+import { checkThrottle, throttleResponse } from "@/lib/throttle";
 import { eq, desc, and, sql } from "drizzle-orm";
+
+// D6: session lists are per-user mutable data — never cache.
+export const dynamic = "force-dynamic";
+
+const NO_STORE = { "Cache-Control": "private, no-store" };
 
 /**
  * GET /api/sessions — List user's chat sessions.
  *
  * Optional query params:
- *   ?limit=N — Return all pinned sessions + N most recent unpinned sessions.
- *              Without limit, returns all sessions (existing behavior).
+ *   ?limit=N — Return all pinned sessions + N most recent unpinned sessions
+ *              (integer 1..100; default 50 when omitted — never unlimited).
  *
  * Sessions are ordered: pinned first (by updated_at DESC), then unpinned (by updated_at DESC).
  */
@@ -20,9 +26,18 @@ export async function GET(request: NextRequest) {
   }
 
   const limitParam = request.nextUrl.searchParams.get("limit");
-  const limit = limitParam ? parseInt(limitParam, 10) : null;
+  let limit: number | null = null;
+  if (limitParam !== null) {
+    const n = Number(limitParam);
+    if (!Number.isInteger(n) || n < 1 || n > 100) {
+      return Response.json({ error: "limit must be an integer 1..100." }, { status: 400 });
+    }
+    limit = n;
+  }
+  // D2: never unlimited — default 50 recent unpinned (+ all pinned).
+  const effective = Math.min(limit ?? 50, 100);
 
-  if (limit && limit > 0) {
+  {
     // Pinned sessions always show (no limit)
     const pinned = await db
       .select()
@@ -46,19 +61,10 @@ export async function GET(request: NextRequest) {
         )
       )
       .orderBy(desc(chatSessions.updatedAt))
-      .limit(limit);
+      .limit(effective);
 
-    return Response.json({ sessions: [...pinned, ...unpinned] });
+    return Response.json({ sessions: [...pinned, ...unpinned] }, { headers: NO_STORE });
   }
-
-  // No limit — return all sessions (existing behavior)
-  const allSessions = await db
-    .select()
-    .from(chatSessions)
-    .where(eq(chatSessions.userId, session.user.id))
-    .orderBy(desc(chatSessions.isPinned), desc(chatSessions.updatedAt));
-
-  return Response.json({ sessions: allSessions });
 }
 
 /**
@@ -77,12 +83,22 @@ export async function POST(request: NextRequest) {
     // Empty body is fine — defaults will be used
   }
 
+  // E3: cap manual session creation (auto-create via /api/chat unaffected).
+  const day = new Date().toISOString().slice(0, 10);
+  const sessionThrottle = await checkThrottle(
+    `sessions:${session.user.id}:${day}`,
+    50,
+    24 * 60 * 60 * 1000
+  );
+  if (!sessionThrottle.allowed) return throttleResponse(sessionThrottle);
+
+  // C2: length caps (DB bloat / UI breakage guard).
   const [newSession] = await db
     .insert(chatSessions)
     .values({
       userId: session.user.id,
-      title: body.title || "New Chat",
-      modelProvider: body.modelProvider,
+      title: (body.title || "New Chat").slice(0, 120),
+      modelProvider: body.modelProvider?.slice(0, 200),
     })
     .returning();
 

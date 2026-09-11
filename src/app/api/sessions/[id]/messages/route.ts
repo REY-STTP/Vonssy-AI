@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db/client";
 import { messages, chatSessions } from "@/lib/db/schema";
+import { isUuid } from "@/lib/validate-uuid";
 import { eq, and, gt } from "drizzle-orm";
 
 /**
@@ -19,6 +20,9 @@ export async function PATCH(
   }
 
   const { id: sessionId } = await params;
+  if (!isUuid(sessionId)) {
+    return Response.json({ error: "Invalid session id." }, { status: 400 });
+  }
 
   // Verify session ownership
   const [chatSession] = await db
@@ -36,12 +40,31 @@ export async function PATCH(
     return Response.json({ error: "Session not found" }, { status: 404 });
   }
 
-  const body = await request.json();
-  const { messageId, content } = body;
+  let raw: unknown;
+  try {
+    raw = await request.json();
+  } catch {
+    return Response.json({ error: "Invalid JSON body." }, { status: 400 });
+  }
+  const parsed =
+    typeof raw === "object" && raw !== null
+      ? (raw as { messageId?: unknown; content?: unknown })
+      : {};
+  const { messageId, content } = parsed;
 
-  if (!messageId || !content) {
+  if (typeof messageId !== "string" || !isUuid(messageId)) {
+    return Response.json({ error: "Invalid messageId." }, { status: 400 });
+  }
+  if (typeof content !== "string" || !content.trim()) {
     return Response.json(
-      { error: "messageId and content are required" },
+      { error: "messageId and non-empty content are required" },
+      { status: 400 }
+    );
+  }
+  // C2: length cap.
+  if (content.length > 20000) {
+    return Response.json(
+      { error: "content too long (max 20000 characters)" },
       { status: 400 }
     );
   }
@@ -95,6 +118,9 @@ export async function DELETE(
   }
 
   const { id: sessionId } = await params;
+  if (!isUuid(sessionId)) {
+    return Response.json({ error: "Invalid session id." }, { status: 400 });
+  }
 
   // Verify session ownership
   const [chatSession] = await db
@@ -115,9 +141,9 @@ export async function DELETE(
   const { searchParams } = new URL(request.url);
   const messageId = searchParams.get("messageId");
 
-  if (!messageId) {
+  if (!messageId || !isUuid(messageId)) {
     return Response.json(
-      { error: "messageId query param is required" },
+      { error: "Valid messageId query param is required" },
       { status: 400 }
     );
   }

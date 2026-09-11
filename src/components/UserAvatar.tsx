@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import Image from "next/image";
 import { createAvatar } from "@dicebear/core";
 import {
   croodlesNeutral,
@@ -59,21 +60,22 @@ export default function UserAvatar({ user, size = 32, className = "" }: UserAvat
     return (
       <img
         src={dicebearUri}
-        alt=""
+        alt={user.name ? `${user.name}'s avatar` : "User avatar"}
         className={`${baseClass} bg-surface-raised`}
         style={{ width: size, height: size }}
       />
     );
   }
 
-  // OAuth profile photo
+  // OAuth profile photo (D6: next/image for optimized delivery)
   if (user.image) {
     return (
-      <img
+      <Image
         src={user.image}
-        alt=""
+        alt={user.name ? `${user.name}'s avatar` : "User avatar"}
+        width={size}
+        height={size}
         className={baseClass}
-        style={{ width: size, height: size }}
       />
     );
   }

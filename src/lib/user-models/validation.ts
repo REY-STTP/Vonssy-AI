@@ -18,6 +18,15 @@ export function normalizeBaseUrl(input: string): string {
       throw new Error("Only https:// URLs are allowed (http only for localhost).");
     }
   }
+  // Port allowlist mirrors ssrf-guard (fail fast at write time).
+  // NOTE: http://localhost is accepted here for dev (Ollama); the
+  // production guard still blocks non-public targets at use time.
+  const isLoopbackHttp =
+    url.protocol === "http:" &&
+    (url.hostname.toLowerCase() === "localhost" || url.hostname === "127.0.0.1");
+  if (url.port && url.port !== "443" && !isLoopbackHttp) {
+    throw new Error("Only the default HTTPS port (443) is allowed.");
+  }
   return trimmed;
 }
 

@@ -2,8 +2,13 @@ import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db/client";
 import { chatSessions } from "@/lib/db/schema";
-import { eq, desc, and, sql, ilike } from "drizzle-orm";
+import { eq, desc, and, sql } from "drizzle-orm";
 import { ALL_CHATS_PAGE_SIZE } from "@/lib/constants";
+
+// D6: per-user mutable data — never cache.
+export const dynamic = "force-dynamic";
+
+const NO_STORE = { "Cache-Control": "private, no-store" };
 
 /**
  * GET /api/sessions/all — Cursor-paginated session list for "All Chats" overlay.
@@ -28,7 +33,15 @@ export async function GET(request: NextRequest) {
   const searchParam = params.get("search");
   const filterParam = params.get("filter") || "all";
 
-  const limit = limitParam ? Math.min(parseInt(limitParam, 10), 100) : ALL_CHATS_PAGE_SIZE;
+  // C4: strict integer — NaN previously flowed into .limit() → 500.
+  let limit = ALL_CHATS_PAGE_SIZE;
+  if (limitParam !== null) {
+    const n = Number(limitParam);
+    if (!Number.isInteger(n) || n < 1 || n > 100) {
+      return Response.json({ error: "limit must be an integer 1..100." }, { status: 400 });
+    }
+    limit = n;
+  }
 
   // Build WHERE conditions
   const conditions = [eq(chatSessions.userId, session.user.id)];
@@ -38,9 +51,12 @@ export async function GET(request: NextRequest) {
     conditions.push(eq(chatSessions.isPinned, true));
   }
 
-  // Search
+  // Search (C4: escape LIKE wildcards so % _ \ match literally).
   if (searchParam && searchParam.trim().length > 0) {
-    conditions.push(ilike(chatSessions.title, `%${searchParam.trim()}%`));
+    const escaped = searchParam.trim().replace(/[\\%_]/g, (c) => `\\${c}`);
+    conditions.push(
+      sql`${chatSessions.title} ILIKE ${"%" + escaped + "%"} ESCAPE '\\'`
+    );
   }
 
   // Cursor: (updated_at, id) < (cursor_ts, cursor_id)
@@ -72,5 +88,5 @@ export async function GET(request: NextRequest) {
     nextCursor = `${ts}_${last.id}`;
   }
 
-  return Response.json({ sessions, nextCursor });
+  return Response.json({ sessions, nextCursor }, { headers: NO_STORE });
 }

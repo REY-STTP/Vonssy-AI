@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, memo } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useAllChats } from "@/hooks/useAllChats";
 import { useLocale } from "@/hooks/useLocale";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 interface AllChatsModalProps {
   isOpen: boolean;
@@ -14,7 +15,197 @@ interface AllChatsModalProps {
   onTogglePin: (id: string, isPinned: boolean) => void;
 }
 
-export default function AllChatsModal({
+// D4: module-scope helpers (stable identities, no per-render recreation).
+function formatRelativeTimeText(ts: string | null) {
+  if (!ts) return "";
+  const date = new Date(ts);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return "Just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString([], { month: "short", day: "numeric" });
+}
+
+interface ChatRowProps {
+  session: { id: string; title: string | null; isPinned: boolean | null; updatedAt: string | null };
+  isRenaming: boolean;
+  renameValue: string;
+  onRenameValue: (v: string) => void;
+  onSubmitRename: (id: string) => void;
+  onCancelRename: () => void;
+  onOpen: (id: string, title: string | null, isPinned: boolean | null) => void;
+  timeLabel: string;
+  menuOpen: boolean;
+  menuFlipUp: boolean;
+  onOpenMenu: (e: React.MouseEvent<HTMLButtonElement>, id: string) => void;
+  onCloseMenu: () => void;
+  onStartRename: (s: { id: string; title: string | null }) => void;
+  onTogglePin: (id: string, pinned: boolean | null) => void;
+  onDelete: (id: string) => void;
+  labelRename: string;
+  labelPin: string;
+  labelUnpin: string;
+  labelDelete: string;
+  labelOptions: string;
+  labelPinned: string;
+  labelNewChat: string;
+}
+
+// D4: memoized row — menu/search state changes no longer re-render every row.
+const ChatRow = memo(function ChatRow({
+  session,
+  isRenaming,
+  renameValue,
+  onRenameValue,
+  onSubmitRename,
+  onCancelRename,
+  onOpen,
+  timeLabel,
+  menuOpen,
+  menuFlipUp,
+  onOpenMenu,
+  onCloseMenu,
+  onStartRename,
+  onTogglePin,
+  onDelete,
+  labelRename,
+  labelPin,
+  labelUnpin,
+  labelDelete,
+  labelOptions,
+  labelPinned,
+  labelNewChat,
+}: ChatRowProps) {
+  if (isRenaming) {
+    return (
+      <input
+        type="text"
+        value={renameValue}
+        aria-label={labelRename}
+        onChange={(e) => onRenameValue(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") onSubmitRename(session.id);
+          if (e.key === "Escape") onCancelRename();
+        }}
+        onBlur={() => onSubmitRename(session.id)}
+        className="flex-1 bg-surface-raised border border-border rounded-md px-2 py-1 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-accent"
+        autoFocus
+        onClick={(e) => e.stopPropagation()}
+      />
+    );
+  }
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => onOpen(session.id, session.title, session.isPinned)}
+        className="flex items-center gap-2 min-w-0 flex-1 text-left"
+      >
+        {session.isPinned && (
+          <>
+            <span className="text-accent text-xs shrink-0" aria-hidden="true">★</span>
+            <span className="sr-only">{labelPinned}</span>
+          </>
+        )}
+        <span className="text-sm font-medium text-text-primary truncate">
+          {session.title || labelNewChat}
+        </span>
+      </button>
+      <div className="flex items-center gap-1 shrink-0 ml-4">
+        <span className="text-[13px] text-text-secondary mr-1">{timeLabel}</span>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (menuOpen) onCloseMenu();
+              else onOpenMenu(e, session.id);
+            }}
+            className="text-text-secondary hover:text-text-primary w-8 h-8 grid place-items-center text-sm transition-colors"
+            aria-label={labelOptions}
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            onKeyDown={(e) => {
+              if (e.key === "Escape" && menuOpen) onCloseMenu();
+            }}
+          >
+            ⋯
+          </button>
+          {menuOpen && (
+            <div
+              role="menu"
+              aria-label={labelOptions}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  e.stopPropagation();
+                  onCloseMenu();
+                  (e.currentTarget.parentElement?.querySelector("button") as HTMLElement | null)?.focus();
+                }
+              }}
+              className={`absolute right-0 ${menuFlipUp ? 'bottom-6' : 'top-6'} z-50 bg-surface border border-border rounded-lg shadow-soft min-w-[160px] overflow-hidden`}
+            >
+              <button
+                type="button"
+                role="menuitem"
+                onClick={(e) => { e.stopPropagation(); onStartRename(session); onCloseMenu(); }}
+                className="w-full text-left px-3 py-2.5 text-xs font-medium text-text-primary hover:bg-surface-raised transition-colors flex items-center gap-2"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                </svg>
+                {labelRename}
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={(e) => { e.stopPropagation(); onTogglePin(session.id, session.isPinned); onCloseMenu(); }}
+                className="w-full text-left px-3 py-2.5 text-xs font-medium text-text-primary hover:bg-surface-raised transition-colors flex items-center gap-2"
+              >
+                {session.isPinned ? (
+                  <>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                    {labelUnpin}
+                  </>
+                ) : (
+                  <>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                      <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26" />
+                    </svg>
+                    {labelPin}
+                  </>
+                )}
+              </button>
+              <div className="border-t border-border" />
+              <button
+                type="button"
+                role="menuitem"
+                onClick={(e) => { e.stopPropagation(); onDelete(session.id); onCloseMenu(); }}
+                className="w-full text-left px-3 py-2.5 text-xs font-medium text-danger hover:bg-surface-raised transition-colors flex items-center gap-2"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                </svg>
+                {labelDelete}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  );
+});
+
+function AllChatsModal({
   isOpen,
   onClose,
   onSelectSession,
@@ -25,6 +216,7 @@ export default function AllChatsModal({
   const modalRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const filterTriggerRef = useRef<HTMLButtonElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const [filterOpen, setFilterOpen] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -48,7 +240,8 @@ export default function AllChatsModal({
     togglePinSession,
   } = useAllChats();
 
-  // Focus trap & restore focus
+  // Focus trap & restore focus (G1: Tab trap via shared hook)
+  useFocusTrap(modalRef, isOpen);
   useEffect(() => {
     if (isOpen) {
       previousFocusRef.current = document.activeElement as HTMLElement;
@@ -65,7 +258,9 @@ export default function AllChatsModal({
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        if (renamingId) {
+        if (filterOpen) {
+          setFilterOpen(false);
+        } else if (renamingId) {
           setRenamingId(null);
         } else {
           onClose();
@@ -74,7 +269,7 @@ export default function AllChatsModal({
     };
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onClose, renamingId]);
+  }, [isOpen, onClose, renamingId, filterOpen]);
 
   // Prevent body scroll
   useEffect(() => {
@@ -152,6 +347,27 @@ export default function AllChatsModal({
     [removeSession, onDeleteSession]
   );
 
+  const handleOpenSession = useCallback(
+    (id: string, title: string | null, isPinned: boolean | null) => {
+      onSelectSession(id, title, isPinned);
+      onClose();
+    },
+    [onSelectSession, onClose]
+  );
+
+  const handleOpenMenu = useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>, id: string) => {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      setMenuFlipUp(spaceBelow < 150);
+      setMenuOpenId(id);
+    },
+    []
+  );
+
+  const closeMenu = useCallback(() => setMenuOpenId(null), []);
+  const cancelRename = useCallback(() => setRenamingId(null), []);
+
   // Virtualizer
   const virtualizer = useVirtualizer({
     count: sessions.length + (hasMore ? 1 : 0),
@@ -160,23 +376,8 @@ export default function AllChatsModal({
     overscan: 5,
   });
 
-  // Format relative timestamp
-  const formatRelativeTime = (ts: string | null) => {
-    if (!ts) return "";
-    const date = new Date(ts);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return "Just now";
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays === 1) return "Yesterday";
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString([], { month: "short", day: "numeric" });
-  };
+  // Format relative timestamp (D4: hoisted module fn below)
+  const formatRelativeTime = useCallback((ts: string | null) => formatRelativeTimeText(ts), []);
 
   if (!isOpen) return null;
 
@@ -233,6 +434,7 @@ export default function AllChatsModal({
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder={t("allChats.search")}
+                aria-label={t("allChats.search")}
                 className="w-full bg-surface-raised border border-border rounded-[10px] pl-9 pr-3 py-2 text-sm text-text-primary placeholder:text-text-secondary focus:outline-none focus:ring-1 focus:ring-accent transition-colors"
               />
             </div>
@@ -241,7 +443,10 @@ export default function AllChatsModal({
             <div className="relative">
               <button
                 type="button"
+                ref={filterTriggerRef}
                 onClick={() => setFilterOpen(!filterOpen)}
+                aria-haspopup="menu"
+                aria-expanded={filterOpen}
                 className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary bg-surface-raised border border-border rounded-[10px] transition-colors whitespace-nowrap"
               >
                 {filter === "all" ? t("allChats.filterAll") : t("allChats.filterPinned")}
@@ -250,9 +455,22 @@ export default function AllChatsModal({
                 </svg>
               </button>
               {filterOpen && (
-                <div className="absolute right-0 top-10 z-50 bg-surface border border-border rounded-lg shadow-soft min-w-[120px] overflow-hidden">
+                <div
+                  role="menu"
+                  aria-label={t("allChats.title")}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") {
+                      e.stopPropagation();
+                      setFilterOpen(false);
+                      filterTriggerRef.current?.focus();
+                    }
+                  }}
+                  className="absolute right-0 top-10 z-50 bg-surface border border-border rounded-lg shadow-soft min-w-[120px] overflow-hidden"
+                >
                   <button
                     type="button"
+                    role="menuitemradio"
+                    aria-checked={filter === "all"}
                     onClick={() => { setFilter("all"); setFilterOpen(false); }}
                     className={`w-full text-left px-3 py-2 text-sm font-medium transition-colors ${filter === "all" ? "text-accent bg-accent/5" : "text-text-primary hover:bg-surface-raised"}`}
                   >
@@ -260,6 +478,8 @@ export default function AllChatsModal({
                   </button>
                   <button
                     type="button"
+                    role="menuitemradio"
+                    aria-checked={filter === "pinned"}
                     onClick={() => { setFilter("pinned"); setFilterOpen(false); }}
                     className={`w-full text-left px-3 py-2 text-sm font-medium transition-colors border-t border-border ${filter === "pinned" ? "text-accent bg-accent/5" : "text-text-primary hover:bg-surface-raised"}`}
                   >
@@ -327,119 +547,30 @@ export default function AllChatsModal({
                       }}
                       className="group flex items-center px-6 py-3 border-b border-border hover:bg-surface-raised transition-colors"
                     >
-                      {isRenaming ? (
-                        /* ── Inline rename input ── */
-                        <input
-                          type="text"
-                          value={renameValue}
-                          onChange={(e) => setRenameValue(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") handleSubmitRename(session.id);
-                            if (e.key === "Escape") setRenamingId(null);
-                          }}
-                          onBlur={() => handleSubmitRename(session.id)}
-                          className="flex-1 bg-surface-raised border border-border rounded-md px-2 py-1 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-accent"
-                          autoFocus
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      ) : (
-                        /* ── Normal row: click-to-open ── */
-                        <button
-                          type="button"
-                          onClick={() => {
-                            onSelectSession(session.id, session.title, session.isPinned);
-                            onClose();
-                          }}
-                          className="flex items-center gap-2 min-w-0 flex-1 text-left"
-                        >
-                          {session.isPinned && (
-                            <span className="text-accent text-xs shrink-0" title="Pinned">★</span>
-                          )}
-                          <span className="text-sm font-medium text-text-primary truncate">
-                            {session.title || "New Chat"}
-                          </span>
-                        </button>
-                      )}
-
-                      {/* Right side: timestamp + kebab menu */}
-                      {!isRenaming && (
-                        <div className="flex items-center gap-1 shrink-0 ml-4">
-                          <span className="text-[13px] text-text-secondary mr-1">
-                            {formatRelativeTime(session.updatedAt)}
-                          </span>
-
-                          {/* Kebab menu (⋯) */}
-                          <div className="relative">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (menuOpenId === session.id) {
-                                  setMenuOpenId(null);
-                                } else {
-                                  const btn = e.currentTarget;
-                                  const rect = btn.getBoundingClientRect();
-                                  const spaceBelow = window.innerHeight - rect.bottom;
-                                  setMenuFlipUp(spaceBelow < 150);
-                                  setMenuOpenId(session.id);
-                                }
-                              }}
-                              className="text-text-secondary hover:text-text-primary px-1 py-0.5 text-sm transition-colors"
-                              aria-label={t("sidebar.options")}
-                            >
-                              ⋯
-                            </button>
-
-                            {menuOpenId === session.id && (
-                              <div className={`absolute right-0 ${menuFlipUp ? 'bottom-6' : 'top-6'} z-50 bg-surface border border-border rounded-lg shadow-soft min-w-[160px] overflow-hidden`}>
-                                <button
-                                  type="button"
-                                  onClick={(e) => { e.stopPropagation(); handleStartRename(session); setMenuOpenId(null); }}
-                                  className="w-full text-left px-3 py-2.5 text-xs font-medium text-text-primary hover:bg-surface-raised transition-colors flex items-center gap-2"
-                                >
-                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                                  </svg>
-                                  {t("sidebar.rename")}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={(e) => { e.stopPropagation(); handleTogglePin(session.id, session.isPinned); setMenuOpenId(null); }}
-                                  className="w-full text-left px-3 py-2.5 text-xs font-medium text-text-primary hover:bg-surface-raised transition-colors flex items-center gap-2"
-                                >
-                                  {session.isPinned ? (
-                                    <>
-                                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                                      </svg>
-                                      {t("sidebar.unpin")}
-                                    </>
-                                  ) : (
-                                    <>
-                                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none">
-                                        <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26" />
-                                      </svg>
-                                      {t("sidebar.pin")}
-                                    </>
-                                  )}
-                                </button>
-                                <div className="border-t border-border" />
-                                <button
-                                  type="button"
-                                  onClick={(e) => { e.stopPropagation(); handleDelete(session.id); setMenuOpenId(null); }}
-                                  className="w-full text-left px-3 py-2.5 text-xs font-medium text-danger hover:bg-surface-raised transition-colors flex items-center gap-2"
-                                >
-                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                                  </svg>
-                                  {t("sidebar.delete")}
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
+                      <ChatRow
+                        session={session}
+                        isRenaming={isRenaming}
+                        renameValue={renameValue}
+                        onRenameValue={setRenameValue}
+                        onSubmitRename={handleSubmitRename}
+                        onCancelRename={cancelRename}
+                        onOpen={handleOpenSession}
+                        timeLabel={formatRelativeTime(session.updatedAt)}
+                        menuOpen={menuOpenId === session.id}
+                        menuFlipUp={menuFlipUp}
+                        onOpenMenu={handleOpenMenu}
+                        onCloseMenu={closeMenu}
+                        onStartRename={handleStartRename}
+                        onTogglePin={handleTogglePin}
+                        onDelete={handleDelete}
+                        labelRename={t("sidebar.rename")}
+                        labelPin={t("sidebar.pin")}
+                        labelUnpin={t("sidebar.unpin")}
+                        labelDelete={t("sidebar.delete")}
+                        labelOptions={t("sidebar.options")}
+                        labelPinned={t("sidebar.pinned")}
+                        labelNewChat={t("sidebar.newChat")}
+                      />
                     </div>
                   );
                 })}
@@ -451,3 +582,5 @@ export default function AllChatsModal({
     </>
   );
 }
+
+export default memo(AllChatsModal);
