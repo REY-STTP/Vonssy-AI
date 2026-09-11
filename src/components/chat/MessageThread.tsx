@@ -351,7 +351,7 @@ function MessageThread({
         <button
           type="button"
           onClick={handleScrollButton}
-          className="fixed bottom-36 right-8 flex items-center justify-center w-10 h-10 rounded-full bg-surface-raised border border-border shadow-md text-text-secondary hover:text-text-primary transition-colors z-50"
+          className="fixed bottom-28 right-4 flex items-center justify-center w-10 h-10 rounded-full bg-surface-raised border border-border shadow-md text-text-secondary hover:text-text-primary transition-colors z-50"
           aria-label={scrollAction === "down" ? t("message.scrollToBottom") : t("message.scrollToTop")}
         >
           {scrollAction === "down" ? (

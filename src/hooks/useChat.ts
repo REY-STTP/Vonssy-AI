@@ -108,6 +108,11 @@ export function useChat({
     reasoningEffort?: "low" | "medium" | "high";
   }
 
+  // Optimistic ids not yet confirmed by the server — truncate flows
+  // require real DB ids, so these always fall back to a fresh send.
+  const isTempId = (id: string) =>
+    id.startsWith("temp-") || id.startsWith("assistant-");
+
   const sendMessage = useCallback(
     async (content: string, options?: SendMessageOptions) => {
       if (!selectedModel) {
@@ -325,6 +330,13 @@ export function useChat({
     async (messageId: string, newContent: string) => {
       if (!currentSessionIdRef.current) return;
 
+      // Temp ids were never confirmed by the server — resend as a fresh
+      // message instead of a truncate flow the server must reject.
+      if (isTempId(messageId)) {
+        await sendMessage(newContent);
+        return;
+      }
+
       const msgIndex = messagesRef.current.findIndex((m) => m.id === messageId);
       if (msgIndex === -1) return;
 
@@ -351,11 +363,21 @@ export function useChat({
         const userMessage = msgs[msgIndex - 1];
         if (!userMessage || userMessage.role !== "user") return;
 
+        // Unconfirmed parent id — resend fresh instead of truncating.
+        if (isTempId(userMessage.id)) {
+          await sendMessage(userMessage.content);
+          return;
+        }
+
         await sendMessage(userMessage.content, {
           truncatePointMessageId: userMessage.id,
           truncateIndex: msgIndex - 1,
         });
       } else if (targetMessage.role === "user") {
+        if (isTempId(targetMessage.id)) {
+          await sendMessage(targetMessage.content);
+          return;
+        }
         await sendMessage(targetMessage.content, {
           truncatePointMessageId: targetMessage.id,
           truncateIndex: msgIndex,

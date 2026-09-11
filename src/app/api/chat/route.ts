@@ -326,6 +326,13 @@ export async function POST(request: NextRequest) {
           `data: ${JSON.stringify({ type: "session", sessionId })}\n\n`
         )
       );
+      // Swap temp→real user id up front: the user row is already saved,
+      // so the client stays correct even if upstream fails or aborts.
+      controller.enqueue(
+        encoder.encode(
+          `data: ${JSON.stringify({ type: "ids", userMessageId: savedUserMessageId, assistantMessageId: null })}\n\n`
+        )
+      );
 
       try {
         const provider = new OpenAICompatibleGateway({
