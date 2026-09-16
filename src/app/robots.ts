@@ -4,25 +4,25 @@ const SITE_URL =
   process.env.NEXTAUTH_URL ?? "https://www.vonssy-ai.web.id";
 
 /**
- * F2: explicit crawler policy. Chat + API are private; only the
- * login gate, public docs, and machine-readable files are crawlable.
- * Icon/manifest/OG/sitemap assets must stay crawlable (a bare
- * `Disallow: /` would prefix-block them, including /sitemap.xml).
+ * Crawler policy.
+ *
+ * Private surfaces (chat root `/`, `/api/`) are kept out of search
+ * results with an auth redirect + `noindex` (see `(chat)/layout.tsx`),
+ * NOT with `Disallow: /`.
+ *
+ * Why no `Disallow: /`? When robots.txt blocks crawling, Googlebot can
+ * never see the `noindex` tag or the login redirect, so it may index
+ * the URL from link signals alone — exactly the Search Console warning
+ * "Indexed, though blocked by robots.txt". Per Google docs, `noindex`
+ * requires allowing the crawl. Only `/api/` is disallowed: JSON
+ * endpoints carry no `noindex` meta and must never be crawled.
  */
-const PUBLIC_PATHS = [
-  "/login",
-  "/about",
-  "/privacy",
-  "/terms",
-  "/llms.txt",
-  "/sitemap.xml",
-  "/robots.txt",
-  "/favicon.ico",
-  "/icon.svg",
-  "/apple-icon.png",
-  "/manifest.webmanifest",
-  "/og-image.png",
-  "/icons/",
+const AI_CRAWLERS = [
+  "GPTBot",
+  "ClaudeBot",
+  "PerplexityBot",
+  "CCBot",
+  "Bytespider",
 ];
 
 export default function robots(): MetadataRoute.Robots {
@@ -30,22 +30,15 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: "*",
-        allow: PUBLIC_PATHS,
-        disallow: ["/", "/api/"],
+        allow: "/",
+        disallow: "/api/",
       },
       {
-        userAgent: [
-          "GPTBot",
-          "ClaudeBot",
-          "PerplexityBot",
-          "CCBot",
-          "Bytespider",
-        ],
-        allow: PUBLIC_PATHS,
-        disallow: ["/", "/api/"],
+        userAgent: AI_CRAWLERS,
+        allow: "/",
+        disallow: "/api/",
       },
     ],
     sitemap: `${SITE_URL}/sitemap.xml`,
-    host: SITE_URL,
   };
 }
