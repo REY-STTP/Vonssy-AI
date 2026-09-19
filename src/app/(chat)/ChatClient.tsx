@@ -10,6 +10,7 @@ import AllChatsModal from "@/components/chat/AllChatsModal";
 import { useChat } from "@/hooks/useChat";
 import { useSessions } from "@/hooks/useSessions";
 import { useProviders } from "@/hooks/useProviders";
+import type { ReasoningEffort } from "@/lib/ai-providers/types";
 import { useLocale } from "@/hooks/useLocale";
 
 interface ChatClientProps {
@@ -34,7 +35,7 @@ export default function ChatClient({ user }: ChatClientProps) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<"profile" | "providers" | "appearance" | "data">("profile");
   const [isAllChatsOpen, setIsAllChatsOpen] = useState(false);
-  const [reasoningEffort, setReasoningEffort] = useState<"low" | "medium" | "high">("medium");
+  const [reasoningEffort, setReasoningEffort] = useState<ReasoningEffort>("medium");
   const [fallbackSession, setFallbackSession] = useState<{ id: string, title: string | null, isPinned: boolean | null } | null>(null);
   const { t } = useLocale();
 

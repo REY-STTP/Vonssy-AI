@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef } from "react";
 import { toast } from "sonner";
 import type { UserProviderConfig } from "./useProviders";
+import type { ReasoningEffort } from "@/lib/ai-providers/types";
 
 interface Message {
   id: string;
@@ -105,7 +106,7 @@ export function useChat({
     truncatePointMessageId?: string;
     editContent?: string;
     truncateIndex?: number;
-    reasoningEffort?: "low" | "medium" | "high";
+    reasoningEffort?: ReasoningEffort;
   }
 
   // Optimistic ids not yet confirmed by the server — truncate flows

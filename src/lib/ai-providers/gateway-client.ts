@@ -32,10 +32,15 @@ export class OpenAICompatibleGateway implements AIProvider {
 
   async *streamChat(options: ChatOptions): AsyncGenerator<StreamChunk> {
     try {
+      // Reasoning models typically reject a non-default temperature, so
+      // only send it when explicitly provided alongside reasoning effort.
+      // Regular models keep the previous 0.75 default (unchanged behavior).
+      const temperature =
+        options.temperature ?? (options.reasoningEffort ? undefined : 0.75);
       const requestBody: Record<string, unknown> = {
         model: options.model,
         messages: options.messages,
-        temperature: options.temperature ?? 0.75,
+        ...(temperature !== undefined ? { temperature } : {}),
         max_tokens: options.maxTokens,
         stream: true,
         stream_options: { include_usage: true },

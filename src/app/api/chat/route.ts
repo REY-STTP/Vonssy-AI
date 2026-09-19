@@ -8,7 +8,7 @@ import { assertBaseUrlAllowed, createNoRedirectFetch } from "@/lib/ssrf-guard";
 import { checkThrottle, throttleResponse } from "@/lib/throttle";
 import { redactSecrets } from "@/lib/redact";
 import { eq, and, gt, asc, ne } from "drizzle-orm";
-import type { TokenUsage } from "@/lib/ai-providers/types";
+import type { TokenUsage, ReasoningEffort } from "@/lib/ai-providers/types";
 import { isUuid } from "@/lib/validate-uuid";
 
 /**
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     editContent?: string;
     temperature?: number;
     maxTokens?: number;
-    reasoningEffort?: "low" | "medium" | "high";
+    reasoningEffort?: ReasoningEffort;
   };
 
   try {
@@ -115,9 +115,10 @@ export async function POST(request: NextRequest) {
     body.reasoningEffort !== undefined &&
     body.reasoningEffort !== "low" &&
     body.reasoningEffort !== "medium" &&
-    body.reasoningEffort !== "high"
+    body.reasoningEffort !== "high" &&
+    body.reasoningEffort !== "max"
   ) {
-    return chatBad("reasoningEffort must be 'low', 'medium', or 'high'.");
+    return chatBad("reasoningEffort must be 'low', 'medium', 'high', or 'max'.");
   }
   if (
     body.editContent !== undefined &&

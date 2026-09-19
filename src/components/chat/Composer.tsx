@@ -3,20 +3,21 @@
 import { useState, useRef, useEffect, memo, KeyboardEvent } from "react";
 import ProviderDropdown from "./ProviderDropdown";
 import type { UserProviderConfig } from "@/hooks/useProviders";
+import type { ReasoningEffort } from "@/lib/ai-providers/types";
 import { useLocale } from "@/hooks/useLocale";
 
 interface ComposerProps {
   providers: UserProviderConfig[];
   selectedProvider: UserProviderConfig | null;
   onProviderSelect: (id: string) => void;
-  onSend: (content: string, options?: { reasoningEffort?: "low" | "medium" | "high" }) => void;
+  onSend: (content: string, options?: { reasoningEffort?: ReasoningEffort }) => void;
   onStop: () => void;
   isStreaming: boolean;
   disabled?: boolean;
   isProvidersLoading?: boolean;
   onManageProviders?: () => void;
-  reasoningEffort?: "low" | "medium" | "high";
-  onReasoningChange?: (effort: "low" | "medium" | "high") => void;
+  reasoningEffort?: ReasoningEffort;
+  onReasoningChange?: (effort: ReasoningEffort) => void;
 }
 
 function Composer({
@@ -160,7 +161,7 @@ function Composer({
                 </svg>
                 {reasoningEffort && (
                   <span className="ml-1 text-[10px] uppercase font-bold tracking-wider hidden sm:block">
-                    {reasoningEffort.charAt(0)}
+                    {reasoningEffort === "max" ? "Max" : reasoningEffort.charAt(0)}
                   </span>
                 )}
               </button>
@@ -170,7 +171,7 @@ function Composer({
                   aria-label={t("composer.reasoningLabel")}
                   className="absolute bottom-full right-0 mb-2 w-32 bg-surface border border-border rounded-lg shadow-dropdown overflow-hidden animate-fade-in z-50"
                 >
-                  {(["low", "medium", "high"] as const).map((level) => (
+                  {(["low", "medium", "high", "max"] as const).map((level) => (
                     <button
                       key={level}
                       type="button"

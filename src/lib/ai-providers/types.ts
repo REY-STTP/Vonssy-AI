@@ -24,13 +24,15 @@ export interface StreamChunk {
   isRateLimited?: boolean;
 }
 
+export type ReasoningEffort = "low" | "medium" | "high" | "max";
+
 export interface ChatOptions {
   model: string;
   messages: ChatMessage[];
   temperature?: number;
   maxTokens?: number;
   /** Passed through when the gateway supports it; ignored otherwise */
-  reasoningEffort?: "low" | "medium" | "high";
+  reasoningEffort?: ReasoningEffort;
   /** AbortSignal for stop-generation control */
   signal?: AbortSignal;
 }
