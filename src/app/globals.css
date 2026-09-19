@@ -145,7 +145,7 @@
 
   .input-base {
     @apply w-full bg-surface text-text-primary placeholder:text-text-secondary
-           border border-border rounded-lg
+           border border-border rounded-lg px-3 py-2
            focus:outline-none focus:border-accent
            focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 focus-visible:ring-offset-surface
            transition-colors duration-200;

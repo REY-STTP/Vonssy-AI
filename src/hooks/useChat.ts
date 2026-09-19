@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef } from "react";
 import { toast } from "sonner";
-import type { UserModelConfig } from "./useUserModels";
+import type { UserProviderConfig } from "./useProviders";
 
 interface Message {
   id: string;
@@ -22,14 +22,14 @@ interface TokenUsage {
 
 interface UseChatOptions {
   sessionId: string | null;
-  selectedModel: UserModelConfig | null;
+  selectedProvider: UserProviderConfig | null;
   onSessionCreated?: (sessionId: string) => void;
   onMessageComplete?: () => void;
 }
 
 export function useChat({
   sessionId,
-  selectedModel,
+  selectedProvider,
   onSessionCreated,
   onMessageComplete,
 }: UseChatOptions) {
@@ -115,8 +115,8 @@ export function useChat({
 
   const sendMessage = useCallback(
     async (content: string, options?: SendMessageOptions) => {
-      if (!selectedModel) {
-        toast.error("Add a model first in Settings → AI Models.");
+      if (!selectedProvider) {
+        toast.error("Add a provider first in Settings → Providers.");
         return;
       }
       cancelStreamingFlush();
@@ -169,7 +169,7 @@ export function useChat({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            modelConfigId: selectedModel.id,
+            providerId: selectedProvider.id,
             messages: apiMessages,
             chatSessionId: currentSessionIdRef.current,
             truncatePointMessageId: options?.truncatePointMessageId,
@@ -273,8 +273,8 @@ export function useChat({
             id: `assistant-${Date.now()}`,
             role: "assistant",
             content: fullAssistantContent,
-            provider: selectedModel.label,
-            model: selectedModel.model,
+            provider: selectedProvider.label,
+            model: selectedProvider.model,
             createdAt: new Date().toISOString(),
           };
 
@@ -319,7 +319,7 @@ export function useChat({
         // authoritative. Server UUIDs arrive on next session load.
       }
     },
-    [selectedModel, onSessionCreated, onMessageComplete, cancelStreamingFlush]
+    [selectedProvider, onSessionCreated, onMessageComplete, cancelStreamingFlush]
   );
 
   const stopGeneration = useCallback(() => {

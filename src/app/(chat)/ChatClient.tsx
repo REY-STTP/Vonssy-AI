@@ -9,7 +9,7 @@ import SettingsModal from "@/components/chat/SettingsModal";
 import AllChatsModal from "@/components/chat/AllChatsModal";
 import { useChat } from "@/hooks/useChat";
 import { useSessions } from "@/hooks/useSessions";
-import { useUserModels } from "@/hooks/useUserModels";
+import { useProviders } from "@/hooks/useProviders";
 import { useLocale } from "@/hooks/useLocale";
 
 interface ChatClientProps {
@@ -32,7 +32,7 @@ export default function ChatClient({ user }: ChatClientProps) {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [settingsTab, setSettingsTab] = useState<"profile" | "ai-models" | "appearance" | "data">("profile");
+  const [settingsTab, setSettingsTab] = useState<"profile" | "providers" | "appearance" | "data">("profile");
   const [isAllChatsOpen, setIsAllChatsOpen] = useState(false);
   const [reasoningEffort, setReasoningEffort] = useState<"low" | "medium" | "high">("medium");
   const [fallbackSession, setFallbackSession] = useState<{ id: string, title: string | null, isPinned: boolean | null } | null>(null);
@@ -52,8 +52,8 @@ export default function ChatClient({ user }: ChatClientProps) {
     refreshSessions,
   } = useSessions();
 
-  const userModels = useUserModels();
-  const { models, selected, select, isLoading: modelsLoading } = userModels;
+  const userProviders = useProviders();
+  const { providers, selected, select, isLoading: providersLoading } = userProviders;
 
   // D3: stable callbacks so useChat's sendMessage keeps its identity.
   const handleSessionCreated = useCallback(
@@ -81,7 +81,7 @@ export default function ChatClient({ user }: ChatClientProps) {
     setFeedback,
   } = useChat({
     sessionId: activeSessionId,
-    selectedModel: selected,
+    selectedProvider: selected,
     onSessionCreated: handleSessionCreated,
     onMessageComplete: handleMessageComplete,
   });
@@ -127,7 +127,7 @@ export default function ChatClient({ user }: ChatClientProps) {
     });
   }, []);
 
-  const handleOpenSettings = useCallback((tab: "profile" | "ai-models" | "appearance" | "data" = "profile") => {
+  const handleOpenSettings = useCallback((tab: "profile" | "providers" | "appearance" | "data" = "profile") => {
     setSettingsTab(tab);
     setIsSettingsOpen(true);
   }, []);
@@ -145,20 +145,20 @@ export default function ChatClient({ user }: ChatClientProps) {
     []
   );
 
-  const openManageModels = useCallback(() => handleOpenSettings("ai-models"), [handleOpenSettings]);
+  const openManageProviders = useCallback(() => handleOpenSettings("providers"), [handleOpenSettings]);
   const openProfileSettings = useCallback(() => handleOpenSettings("profile"), [handleOpenSettings]);
 
   const composer = (key: string) => (
     <Composer
       key={key}
-      models={models}
-      selectedModel={selected}
-      onModelSelect={select}
+      providers={providers}
+      selectedProvider={selected}
+      onProviderSelect={select}
       onSend={sendMessage}
       onStop={stopGeneration}
       isStreaming={isStreaming}
-      isModelsLoading={modelsLoading}
-      onManageModels={openManageModels}
+      isProvidersLoading={providersLoading}
+      onManageProviders={openManageProviders}
       reasoningEffort={reasoningEffort}
       onReasoningChange={setReasoningEffort}
     />
@@ -225,17 +225,8 @@ export default function ChatClient({ user }: ChatClientProps) {
                     : t("welcome.greetingAnon")}
                 </h2>
                 <p className="text-text-secondary text-base font-body max-w-md mt-2">
-                  {models.length === 0 && !modelsLoading ? t("models.emptyWelcome") : t("welcome.subtitle")}
+                  {t("welcome.subtitle")}
                 </p>
-                {models.length === 0 && !modelsLoading && (
-                  <button
-                    type="button"
-                    onClick={openManageModels}
-                    className="btn-primary text-sm px-4 py-2 mt-4"
-                  >
-                    {t("models.addFirst")}
-                  </button>
-                )}
               </div>
               <div className="w-full max-w-2xl">
                 {composer("welcome")}
@@ -264,7 +255,7 @@ export default function ChatClient({ user }: ChatClientProps) {
         onClose={() => setIsSettingsOpen(false)}
         user={user}
         initialTab={settingsTab}
-        userModels={userModels}
+        userProviders={userProviders}
       />
 
       <AllChatsModal

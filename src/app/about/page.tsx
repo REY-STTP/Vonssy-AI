@@ -11,11 +11,11 @@ export const metadata: Metadata = {
 const FAQS_EN = [
   {
     q: "What is VonssyAI?",
-    a: "VonssyAI is a chat app that talks to multiple AI models through one unified interface. Chat history, settings, and model configurations are stored in your account.",
+    a: "VonssyAI is a chat app that talks to multiple AI models through one unified interface. Chat history, settings, and provider configurations are stored in your account.",
   },
   {
     q: "What does BYOK mean here?",
-    a: "Bring Your Own Key. You supply your own OpenAI-compatible API endpoint: a base URL, an API key, and a model ID. Add as many configurations as you like under Settings → AI Gateways.",
+    a: "Bring Your Own Key. You supply your own OpenAI-compatible API endpoint: a base URL, an API key, and a model ID. Add as many configurations as you like under Settings → Providers.",
   },
   {
     q: "Which models are supported?",

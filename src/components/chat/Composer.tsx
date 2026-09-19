@@ -1,34 +1,34 @@
 "use client";
 
 import { useState, useRef, useEffect, memo, KeyboardEvent } from "react";
-import ModelDropdown from "./ModelDropdown";
-import type { UserModelConfig } from "@/hooks/useUserModels";
+import ProviderDropdown from "./ProviderDropdown";
+import type { UserProviderConfig } from "@/hooks/useProviders";
 import { useLocale } from "@/hooks/useLocale";
 
 interface ComposerProps {
-  models: UserModelConfig[];
-  selectedModel: UserModelConfig | null;
-  onModelSelect: (id: string) => void;
+  providers: UserProviderConfig[];
+  selectedProvider: UserProviderConfig | null;
+  onProviderSelect: (id: string) => void;
   onSend: (content: string, options?: { reasoningEffort?: "low" | "medium" | "high" }) => void;
   onStop: () => void;
   isStreaming: boolean;
   disabled?: boolean;
-  isModelsLoading?: boolean;
-  onManageModels?: () => void;
+  isProvidersLoading?: boolean;
+  onManageProviders?: () => void;
   reasoningEffort?: "low" | "medium" | "high";
   onReasoningChange?: (effort: "low" | "medium" | "high") => void;
 }
 
 function Composer({
-  models,
-  selectedModel,
-  onModelSelect,
+  providers,
+  selectedProvider,
+  onProviderSelect,
   onSend,
   onStop,
   isStreaming,
   disabled = false,
-  isModelsLoading = false,
-  onManageModels,
+  isProvidersLoading = false,
+  onManageProviders,
   reasoningEffort,
   onReasoningChange,
 }: ComposerProps) {
@@ -53,7 +53,11 @@ function Composer({
 
     window.addEventListener("resize", adjustHeight);
     return () => window.removeEventListener("resize", adjustHeight);
-  }, [content]);
+    // Re-run when provider readiness flips (loading → ready):
+    // the initial height is measured while disabled with the
+    // "loading" placeholder, and on narrow mobile widths
+    // that measurement must not stick after the short placeholder arrives.
+  }, [content, isProvidersLoading, selectedProvider]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -77,12 +81,15 @@ function Composer({
     };
   }, [showReasoningMenu]);
 
-  const noModel = !selectedModel;
-  const sendDisabled = !content.trim() || disabled || isStreaming || noModel;
+  // Without a provider the composer stays open for typing (always the
+  // normal placeholder), but sending is disabled until one is selected.
+  const noProvider = !isProvidersLoading && !selectedProvider;
+  const sendDisabled = !content.trim() || disabled || isStreaming || noProvider || isProvidersLoading;
+  const placeholder = t("composer.placeholder");
 
   const handleSend = () => {
     const trimmed = content.trim();
-    if (!trimmed || disabled || noModel) return;
+    if (!trimmed || disabled || isStreaming || noProvider || isProvidersLoading) return;
     onSend(trimmed, { reasoningEffort });
     setContent("");
     if (textareaRef.current) {
@@ -100,36 +107,39 @@ function Composer({
   return (
     <div className="w-full px-4 pb-6 pt-2 bg-bg animate-fade-slide-in">
       <div className="flex flex-col max-w-3xl mx-auto gap-2">
-        <div className="flex items-center gap-2 bg-surface border border-border rounded-[16px] shadow-soft p-2 transition-all focus-within:ring-2 focus-within:ring-accent focus-within:border-accent">
+        <div className="flex flex-col bg-surface border border-border rounded-[16px] shadow-soft p-2 transition-all focus-within:ring-2 focus-within:ring-accent focus-within:border-accent">
 
-          <div className="shrink-0 z-20">
-            <ModelDropdown
-              models={models}
-              selected={selectedModel}
-              onSelect={onModelSelect}
-              isStreaming={isStreaming}
-              isLoading={isModelsLoading}
-              onManageClick={onManageModels}
-            />
-          </div>
-
-          <div className="flex-1 mt-1">
+          {/* Row 1: textarea */}
+          <div className="flex-1 mt-1 min-w-0">
             <textarea
               ref={textareaRef}
               value={content}
               onChange={(e) => setContent(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={noModel ? t("models.needModel") : t("composer.placeholder")}
-              disabled={disabled || isStreaming || noModel}
+              placeholder={placeholder}
+              disabled={disabled || isStreaming || isProvidersLoading}
               rows={1}
               aria-keyshortcuts="Enter"
-              className="w-full bg-transparent text-text-primary placeholder:text-text-secondary text-[15px] resize-none focus:outline-none min-h-[32px] max-h-[200px] leading-relaxed py-[4px] overflow-y-auto"
+              className="w-full bg-transparent text-text-primary placeholder:text-text-secondary text-[15px] resize-none focus:outline-none min-h-[32px] max-h-[200px] leading-relaxed py-[4px] px-1 overflow-y-auto"
               style={{ scrollbarWidth: 'none' }}
               aria-label={t("composer.inputLabel")}
             />
           </div>
 
-          <div className="shrink-0 ml-2 flex items-center gap-2 mr-1.5">
+          {/* Row 2: provider picker + reasoning + send */}
+          <div className="flex items-center justify-between gap-2 pt-1">
+            <div className="shrink-0 z-20 min-w-0">
+              <ProviderDropdown
+                providers={providers}
+                selected={selectedProvider}
+                onSelect={onProviderSelect}
+                isStreaming={isStreaming}
+                isLoading={isProvidersLoading}
+                onManageClick={onManageProviders}
+              />
+            </div>
+
+            <div className="flex items-center gap-1 shrink-0">
             <div className="relative" ref={reasoningMenuRef}>
               <button
                 type="button"
@@ -158,7 +168,7 @@ function Composer({
                 <div
                   role="menu"
                   aria-label={t("composer.reasoningLabel")}
-                  className="absolute bottom-full right-0 mb-5 w-32 bg-surface border border-border rounded-lg shadow-dropdown overflow-hidden animate-fade-in z-50"
+                  className="absolute bottom-full right-0 mb-2 w-32 bg-surface border border-border rounded-lg shadow-dropdown overflow-hidden animate-fade-in z-50"
                 >
                   {(["low", "medium", "high"] as const).map((level) => (
                     <button
@@ -186,7 +196,7 @@ function Composer({
               <button
                 type="button"
                 onClick={onStop}
-                className="flex items-center justify-center w-8 h-8 rounded-full bg-danger text-accent-contrast transition-opacity hover:opacity-90"
+                className="flex items-center justify-center p-1.5 rounded-md bg-danger text-accent-contrast transition-opacity hover:opacity-90"
                 aria-label={t("composer.stopLabel")}
               >
                 <StopIcon />
@@ -196,7 +206,7 @@ function Composer({
                 type="button"
                 onClick={handleSend}
                 disabled={sendDisabled}
-                className={`flex items-center justify-center w-8 h-8 rounded-full bg-accent text-accent-contrast transition-opacity ${
+                className={`flex items-center justify-center p-1.5 rounded-md bg-accent text-accent-contrast transition-opacity ${
                   sendDisabled ? "opacity-50 cursor-not-allowed" : "hover:opacity-90 cursor-pointer"
                 }`}
                 aria-label={t("composer.sendLabel")}
@@ -204,6 +214,7 @@ function Composer({
                 <SendIcon />
               </button>
             )}
+            </div>
           </div>
         </div>
       </div>
@@ -215,7 +226,7 @@ export default memo(Composer);
 
 function SendIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
       <line x1="12" y1="19" x2="12" y2="5"></line>
       <polyline points="5 12 12 5 19 12"></polyline>
     </svg>
@@ -224,7 +235,7 @@ function SendIcon() {
 
 function StopIcon() {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
       <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
     </svg>
   );

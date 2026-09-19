@@ -8,7 +8,7 @@ import {
   validateApiKey,
   validateLabel,
   validateModelId,
-} from "@/lib/user-models/validation";
+} from "@/lib/user-providers/validation";
 import { assertBaseUrlAllowed } from "@/lib/ssrf-guard";
 import { isUuid } from "@/lib/validate-uuid";
 import { eq, and } from "drizzle-orm";
@@ -41,7 +41,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   if (!isUuid(id)) return Response.json({ error: "Not found." }, { status: 404 });
   const row = await owned(id, session.user.id);
   if (!row) return Response.json({ error: "Not found." }, { status: 404 });
-  return Response.json({ model: toPublic(row) });
+  return Response.json({ provider: toPublic(row) });
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -79,7 +79,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       .set(patch)
       .where(and(eq(userAiModels.id, id), eq(userAiModels.userId, session.user.id)))
       .returning();
-    return Response.json({ model: toPublic(updated) });
+    return Response.json({ provider: toPublic(updated) });
   } catch (err) {
     return Response.json(
       { error: err instanceof Error ? err.message : "Validation failed." },

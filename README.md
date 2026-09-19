@@ -9,7 +9,7 @@ Built by **Vonssy, the Heavenly Demon King**.
 ## ✨ Features
 
 ### Core Chat
-- **BYOK Multi-Provider** — Each user stores N custom configs (`label, baseUrl, apiKey, model`) via Settings → AI Gateways. Any OpenAI-compatible API works.
+- **BYOK Multi-Provider** — Each user stores N custom configs (`label, baseUrl, apiKey, model`) via Settings → Providers. Any OpenAI-compatible API works.
 - **Encrypted at rest** — API keys stored AES-256-GCM in `user_ai_models`; clients only ever see `****last4`.
 - **Real-time Streaming** — Server-Sent Events (SSE) stream AI responses token-by-token with live typing indicator.
 - **Test connection** — One-click non-streaming `POST {baseUrl}/chat/completions` check before chatting.
@@ -150,7 +150,7 @@ src/
 │   │   ├── auth/[...nextauth]/ # NextAuth route handler
 │   │   ├── chat/               # BYOK SSE streaming endpoint + feedback
 │   │   ├── sessions/           # CRUD for sessions + paginated "all" endpoint
-│   │   └── user/               # Profile, avatar, share-profile + models CRUD + test
+│   │   └── user/               # Profile, avatar, share-profile + providers CRUD + test
 │   ├── about/                  # Public about + FAQ page (SEO/LLMO, JSON-LD)
 │   ├── privacy/                # Public privacy policy (EN/ID)
 │   ├── terms/                  # Public terms of service (EN/ID)
@@ -169,10 +169,10 @@ src/
 │   │   ├── Sidebar.tsx         # Collapsible sidebar with pin/rename/delete
 │   │   ├── ChatHeader.tsx      # Session title, model badge, kebab menu
 │   │   ├── MessageThread.tsx   # Message list with edit, regenerate, feedback
-│   │   ├── Composer.tsx        # Chat input with user-model selector
-│   │   ├── ModelDropdown.tsx   # User-model picker grouped by host
+│   │   ├── Composer.tsx        # Chat input with user-provider selector
+│   │   ├── ProviderDropdown.tsx # User-provider picker grouped by host
 │   │   ├── AllChatsModal.tsx   # Virtualized all-chats overlay
-│   │   ├── SettingsModal.tsx   # Settings (profile, AI gateways, appearance, data)
+│   │   ├── SettingsModal.tsx   # Settings (profile, providers, appearance, data)
 │   │   └── MarkdownRenderer.tsx # Markdown + syntax highlighting (PrismLight)
 │   ├── ThemeProvider.tsx       # next-themes wrapper
 │   ├── PublicDoc.tsx           # Shared shell for public pages (about/privacy/terms)
@@ -182,7 +182,7 @@ src/
 │   ├── useChat.ts              # Chat state, streaming, edit, regenerate (BYOK)
 │   ├── useSessions.ts          # Session CRUD, pin, rename, delete
 │   ├── useAllChats.ts          # Paginated all-chats with search/filter
-│   ├── useUserModels.ts        # User model configs CRUD + selection
+│   ├── useProviders.ts         # User provider configs CRUD + selection
 │   ├── useFocusTrap.ts         # Tab-trap for modals
 │   ├── useLocale.ts            # i18n hook (EN/ID)
 │   └── useReadingFont.ts       # Reading font preference
@@ -195,7 +195,7 @@ src/
 │   ├── db/
 │   │   ├── schema.ts           # Drizzle schema (users, sessions, messages, user_ai_models, etc.)
 │   │   └── client.ts           # Drizzle client (postgres.js driver)
-│   ├── user-models/
+│   ├── user-providers/
 │   │   └── validation.ts       # Label/URL/key/model validation + masking
 │   ├── auth.ts                 # Auth.js full config (with DB adapter)
 │   ├── auth.config.ts          # Edge-compatible auth config (providers only)
@@ -260,7 +260,7 @@ Pre-built component classes: `.card`, `.btn-primary`, `.btn-secondary`, `.btn-gh
 - **Server-side auth on every API route** — Not relying solely on proxy/middleware (CVE-2025-29927 mitigation).
 - **User keys encrypted at rest** — AES-256-GCM with `ENCRYPTION_SECRET`; API never returns full keys, only `****last4`.
 - **SSRF guard on custom endpoints** — `https`-only (port 443), metadata/private-IP blocking, DNS re-check, upstream redirects rejected, write-time + use-time checks, 15s timeout.
-- **Ownership checks** — Model configs and chat sessions scoped by `(id, userId)`; cross-user access returns 404.
+- **Ownership checks** — Provider configs and chat sessions scoped by `(id, userId)`; cross-user access returns 404.
 - **Personalization is opt-in + server-injected** — Name/DOB only reach the model when the user enables it in Settings → Profile (default off); values are sanitized single-line server-side, preventing client spoofing.
 - **Strict input validation** — Role allowlist, message/numeric caps, UUID format checks, LIKE escaping, and length caps return 400 before any DB write.
 - **Abuse throttling** — DB-backed fixed windows (test 5/min, chat 300/day, session creation 50/day) with `429 + Retry-After`.

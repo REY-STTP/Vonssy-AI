@@ -85,7 +85,7 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
       const text = await res.text().catch(() => "");
       // E6: generic client message; details stay server-side, redacted.
       console.error(
-        "[models:test] upstream error:",
+        "[providers:test] upstream error:",
         res.status,
         redactSecrets(text).slice(0, 500)
       );
@@ -105,7 +105,7 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
     return Response.json({ ok: true, sample: String(sample).slice(0, 200) });
   } catch (err) {
     const safe = err instanceof Error ? redactSecrets(err.message) : "Connection failed.";
-    console.error("[models:test] connection error:", safe.slice(0, 300));
+    console.error("[providers:test] connection error:", safe.slice(0, 300));
     return Response.json({ ok: false, error: safe.slice(0, 300) });
   }
 }

@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
   // Personalization context is loaded AFTER input validation (below).
 
   let body: {
-    modelConfigId: string;
+    providerId: string;
     messages: Array<{ role: string; content: string }>;
     chatSessionId?: string;
     truncatePointMessageId?: string;
@@ -59,20 +59,20 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { modelConfigId, messages: chatMessages, chatSessionId } = body;
+  const { providerId, messages: chatMessages, chatSessionId } = body;
 
-  if (!modelConfigId || !chatMessages?.length) {
+  if (!providerId || !chatMessages?.length) {
     return new Response(
       JSON.stringify({
-        error: "Missing required fields: modelConfigId, messages.",
+        error: "Missing required fields: providerId, messages.",
       }),
       { status: 400, headers: { "Content-Type": "application/json" } }
     );
   }
 
-  if (!isUuid(modelConfigId)) {
+  if (!isUuid(providerId)) {
     return new Response(
-      JSON.stringify({ error: "Unknown model configuration." }),
+      JSON.stringify({ error: "Unknown provider configuration." }),
       { status: 404, headers: { "Content-Type": "application/json" } }
     );
   }
@@ -159,22 +159,22 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const [modelConfig] = await db
+  const [providerConfig] = await db
     .select()
     .from(userAiModels)
-    .where(and(eq(userAiModels.id, modelConfigId), eq(userAiModels.userId, userId)))
+    .where(and(eq(userAiModels.id, providerId), eq(userAiModels.userId, userId)))
     .limit(1);
 
-  if (!modelConfig) {
+  if (!providerConfig) {
     return new Response(
-      JSON.stringify({ error: "Model configuration not found." }),
+      JSON.stringify({ error: "Provider configuration not found." }),
       { status: 404, headers: { "Content-Type": "application/json" } }
     );
   }
 
   let apiKey: string;
   try {
-    apiKey = decryptApiKey(modelConfig.apiKeyEncrypted);
+    apiKey = decryptApiKey(providerConfig.apiKeyEncrypted);
   } catch {
     return new Response(
       JSON.stringify({ error: "Stored API key is corrupted. Please save it again in Settings." }),
@@ -183,7 +183,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    await assertBaseUrlAllowed(modelConfig.baseUrl);
+    await assertBaseUrlAllowed(providerConfig.baseUrl);
   } catch (err) {
     return new Response(
       JSON.stringify({ error: err instanceof Error ? err.message : "Blocked host." }),
@@ -191,8 +191,8 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const providerLabel = modelConfig.label;
-  const modelId = modelConfig.model;
+  const providerLabel = providerConfig.label;
+  const modelId = providerConfig.model;
 
   const startTime = Date.now();
   const encoder = new TextEncoder();
@@ -337,7 +337,7 @@ export async function POST(request: NextRequest) {
       try {
         const provider = new OpenAICompatibleGateway({
           name: providerLabel,
-          baseURL: modelConfig.baseUrl,
+          baseURL: providerConfig.baseUrl,
           apiKey,
           // A2: never follow upstream redirects (SSRF via 302 to metadata).
           fetchImpl: createNoRedirectFetch(),

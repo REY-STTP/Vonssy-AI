@@ -8,7 +8,7 @@ import {
   validateApiKey,
   validateLabel,
   validateModelId,
-} from "@/lib/user-models/validation";
+} from "@/lib/user-providers/validation";
 import { eq, and, desc } from "drizzle-orm";
 import { assertBaseUrlAllowed } from "@/lib/ssrf-guard";
 
@@ -37,7 +37,7 @@ export async function GET() {
     .where(eq(userAiModels.userId, session.user.id))
     .orderBy(desc(userAiModels.updatedAt));
 
-  return Response.json({ models: rows }, { headers: NO_STORE });
+  return Response.json({ providers: rows }, { headers: NO_STORE });
 }
 
 export async function POST(request: Request) {
@@ -72,7 +72,7 @@ export async function POST(request: Request) {
       .from(userAiModels)
       .where(eq(userAiModels.userId, session.user.id));
     if (existing.length >= MAX_PER_USER) {
-      return Response.json({ error: `Maximum ${MAX_PER_USER} models per user.` }, { status: 400 });
+      return Response.json({ error: `Maximum ${MAX_PER_USER} providers per user.` }, { status: 400 });
     }
 
     const dup = await db
@@ -87,7 +87,7 @@ export async function POST(request: Request) {
       )
       .limit(1);
     if (dup.length > 0) {
-      return Response.json({ error: "A model with this URL and model ID already exists." }, { status: 409 });
+      return Response.json({ error: "A provider with this URL and model ID already exists." }, { status: 409 });
     }
 
     const [row] = await db
@@ -110,7 +110,7 @@ export async function POST(request: Request) {
         updatedAt: userAiModels.updatedAt,
       });
 
-    return Response.json({ model: row }, { status: 201 });
+    return Response.json({ provider: row }, { status: 201 });
   } catch (err) {
     return Response.json(
       { error: err instanceof Error ? err.message : "Validation failed." },

@@ -58,7 +58,7 @@ export async function GET() {
     };
   });
 
-  const modelConfigs = await db
+  const providerConfigs = await db
     .select({
       label: userAiModels.label,
       baseUrl: userAiModels.baseUrl,
@@ -68,7 +68,7 @@ export async function GET() {
     .where(eq(userAiModels.userId, userId))
     .orderBy(asc(userAiModels.createdAt));
 
-  return new Response(JSON.stringify({ exportedAt: new Date().toISOString(), models: modelConfigs, data: exportData }, null, 2), {
+  return new Response(JSON.stringify({ exportedAt: new Date().toISOString(), providers: providerConfigs, data: exportData }, null, 2), {
     headers: {
       "Content-Type": "application/json",
       "Content-Disposition": `attachment; filename="vonssy-ai-export-${new Date().toISOString().split("T")[0]}.json"`,
