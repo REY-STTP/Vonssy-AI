@@ -95,7 +95,8 @@ function ProvidersTab({ userProviders }: { userProviders: ReturnType<typeof useP
   const [baseUrl, setBaseUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [showKey, setShowKey] = useState(false);
-  const [modelId, setModelId] = useState("");
+  const [models, setModels] = useState<string[]>([]);
+  const [modelInput, setModelInput] = useState("");
   // Hint of the stored key (****last4) shown while editing so users know
   // a key is already saved and the empty field means "keep current".
   const [editingHint, setEditingHint] = useState<string | null>(null);
@@ -111,12 +112,13 @@ function ProvidersTab({ userProviders }: { userProviders: ReturnType<typeof useP
     setLabel("");
     setBaseUrl("");
     setApiKey("");
-    setModelId("");
+    setModels([]);
+    setModelInput("");
     setFormError(null);
     setShowForm(true);
   };
 
-  const openEdit = (p: { id: string; label: string; baseUrl: string; model: string; apiKeyHint: string }) => {
+  const openEdit = (p: { id: string; label: string; baseUrl: string; models: string[]; apiKeyHint: string }) => {
     setEditingId(p.id);
     setEditingHint(p.apiKeyHint);
     setDeleteId(null);
@@ -124,7 +126,8 @@ function ProvidersTab({ userProviders }: { userProviders: ReturnType<typeof useP
     setLabel(p.label);
     setBaseUrl(p.baseUrl);
     setApiKey("");
-    setModelId(p.model);
+    setModels(Array.isArray(p.models) ? [...p.models] : []);
+    setModelInput("");
     setFormError(null);
     setShowForm(true);
   };
@@ -137,10 +140,29 @@ function ProvidersTab({ userProviders }: { userProviders: ReturnType<typeof useP
     setFormError(null);
   };
 
+  const addModelChip = () => {
+    const id = modelInput.trim();
+    if (!id) return;
+    if (id.length > 200) {
+      setFormError("Model ID is too long (max 200).");
+      return;
+    }
+    setModels((prev) => (prev.includes(id) ? prev : [...prev, id].slice(0, 20)));
+    setModelInput("");
+    setFormError(null);
+  };
+
+  const removeModelChip = (id: string) => {
+    setModels((prev) => prev.filter((m) => m !== id));
+  };
+
   const handleSave = async () => {
     setFormError(null);
-    if (!label.trim() || !baseUrl.trim() || !modelId.trim()) {
-      setFormError("Label, API URL, and Model ID are required.");
+    // Include a pending typed ID so users don't have to press Add first.
+    const pending = modelInput.trim();
+    const finalModels = pending && !models.includes(pending) ? [...models, pending] : models;
+    if (!label.trim() || !baseUrl.trim() || finalModels.length < 1) {
+      setFormError("Label, API URL, and at least one Model ID are required.");
       return;
     }
     if (!editingId && !apiKey) {
@@ -153,11 +175,11 @@ function ProvidersTab({ userProviders }: { userProviders: ReturnType<typeof useP
         await update(editingId, {
           label: label.trim(),
           baseUrl: baseUrl.trim(),
-          model: modelId.trim(),
+          models: finalModels,
           ...(apiKey ? { apiKey } : {}),
         });
       } else {
-        await create({ label: label.trim(), baseUrl: baseUrl.trim(), apiKey, model: modelId.trim() });
+        await create({ label: label.trim(), baseUrl: baseUrl.trim(), apiKey, models: finalModels });
       }
       setShowForm(false);
       setEditingId(null);
@@ -210,9 +232,47 @@ function ProvidersTab({ userProviders }: { userProviders: ReturnType<typeof useP
         <p id="provider-apikey-help" className="text-[11px] text-text-secondary mt-1">{t("providers.apiKeyHelp")}</p>
       </div>
       <div>
-        <label htmlFor="provider-model" className="text-[12px] font-medium text-text-secondary">{t("providers.modelId")}</label>
-        <input id="provider-model" value={modelId} onChange={(e) => setModelId(e.target.value)} placeholder={t("providers.modelIdPlaceholder")} maxLength={200} aria-describedby="provider-model-help" className="input-base mt-1 w-full text-sm font-mono" />
-        <p id="provider-model-help" className="text-[11px] text-text-secondary mt-1">{t("providers.modelIdHelp")}</p>
+        <label htmlFor="provider-model" className="text-[12px] font-medium text-text-secondary">{t("providers.models")}</label>
+        {models.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mt-2" aria-label={t("providers.models")}>
+            {models.map((m) => (
+              <span key={m} className="inline-flex items-center gap-1 bg-surface-raised border border-border rounded-full pl-2.5 pr-1 py-0.5 text-[12px] font-mono text-text-primary max-w-full">
+                <span className="truncate" title={m}>{m}</span>
+                <button
+                  type="button"
+                  onClick={() => removeModelChip(m)}
+                  className="flex items-center justify-center w-4 h-4 rounded-full text-text-secondary hover:text-danger hover:bg-border transition-colors shrink-0"
+                  aria-label={`${t("providers.removeModel")}: ${m}`}
+                >
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+        <div className="flex gap-2 mt-2">
+          <input
+            id="provider-model"
+            value={modelInput}
+            onChange={(e) => setModelInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                addModelChip();
+              }
+            }}
+            placeholder={t("providers.modelsPlaceholder")}
+            maxLength={200}
+            aria-describedby="provider-model-help"
+            className="input-base w-full text-sm font-mono"
+          />
+          <button type="button" onClick={addModelChip} className="btn-secondary text-[13px] px-3 shrink-0">
+            {t("providers.addModel")}
+          </button>
+        </div>
+        <p id="provider-model-help" className="text-[11px] text-text-secondary mt-1">{t("providers.modelsHelp")}</p>
       </div>
       {formError && <p role="alert" className="text-[13px] text-danger break-words whitespace-pre-wrap">{formError}</p>}
       <div className="flex gap-2 justify-end">
@@ -269,8 +329,8 @@ function ProvidersTab({ userProviders }: { userProviders: ReturnType<typeof useP
                 <span className="text-[12px] text-text-primary font-mono truncate text-right min-w-0" title={p.baseUrl}>{p.baseUrl}</span>
                 <span className="text-text-secondary font-medium uppercase text-[11px] tracking-wider">API Key</span>
                 <span className="text-[12px] text-text-primary font-mono truncate text-right min-w-0" title={p.apiKeyHint}>{p.apiKeyHint}</span>
-                <span className="text-text-secondary font-medium uppercase text-[11px] tracking-wider">Model</span>
-                <span className="text-[12px] text-text-primary font-mono truncate text-right min-w-0" title={p.model}>{p.model}</span>
+                <span className="text-text-secondary font-medium uppercase text-[11px] tracking-wider">Models</span>
+                <span className="text-[12px] text-text-primary font-mono truncate text-right min-w-0" title={(Array.isArray(p.models) ? p.models : []).join(", ")}>{(Array.isArray(p.models) ? p.models : []).join(", ")}</span>
               </div>
               {testMsg?.id === p.id && (
                 <p role={testMsg.ok ? "status" : "alert"} className={`text-[12px] leading-relaxed break-words whitespace-pre-wrap min-w-0 ${testMsg.ok ? "text-emerald-600 dark:text-emerald-400" : "text-danger"}`}>{testMsg.text}</p>

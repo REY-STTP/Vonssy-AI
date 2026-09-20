@@ -9,7 +9,7 @@ Built by **Vonssy, the Heavenly Demon King**.
 ## ✨ Features
 
 ### Core Chat
-- **BYOK Multi-Provider** — Each user stores N custom configs (`label, baseUrl, apiKey, model`) via Settings → Providers. Any OpenAI-compatible API works.
+- **BYOK Multi-Provider** — Each user stores N custom configs (`label, baseUrl, apiKey, model`) via Settings → Providers. Each provider holds N model IDs under one URL + key. Any OpenAI-compatible API works.
 - **Encrypted at rest** — API keys stored AES-256-GCM in `user_ai_models`; clients only ever see `****last4`.
 - **Real-time Streaming** — Server-Sent Events (SSE) stream AI responses token-by-token with live typing indicator.
 - **Test connection** — One-click non-streaming `POST {baseUrl}/chat/completions` check before chatting.

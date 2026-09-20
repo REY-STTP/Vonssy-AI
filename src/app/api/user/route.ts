@@ -62,7 +62,7 @@ export async function GET() {
     .select({
       label: userAiModels.label,
       baseUrl: userAiModels.baseUrl,
-      model: userAiModels.model,
+      models: userAiModels.models,
     })
     .from(userAiModels)
     .where(eq(userAiModels.userId, userId))

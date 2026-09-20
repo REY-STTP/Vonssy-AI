@@ -54,7 +54,7 @@ export default function ChatClient({ user }: ChatClientProps) {
   } = useSessions();
 
   const userProviders = useProviders();
-  const { providers, selected, select, isLoading: providersLoading } = userProviders;
+  const { providers, selectedProvider, selectedModel, select, isLoading: providersLoading } = userProviders;
 
   // D3: stable callbacks so useChat's sendMessage keeps its identity.
   const handleSessionCreated = useCallback(
@@ -82,7 +82,8 @@ export default function ChatClient({ user }: ChatClientProps) {
     setFeedback,
   } = useChat({
     sessionId: activeSessionId,
-    selectedProvider: selected,
+    selectedProvider,
+    selectedModel,
     onSessionCreated: handleSessionCreated,
     onMessageComplete: handleMessageComplete,
   });
@@ -153,7 +154,8 @@ export default function ChatClient({ user }: ChatClientProps) {
     <Composer
       key={key}
       providers={providers}
-      selectedProvider={selected}
+      selectedProvider={selectedProvider}
+      selectedModel={selectedModel}
       onProviderSelect={select}
       onSend={sendMessage}
       onStop={stopGeneration}

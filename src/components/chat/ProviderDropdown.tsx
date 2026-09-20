@@ -6,8 +6,9 @@ import { useLocale } from "@/hooks/useLocale";
 
 interface ProviderDropdownProps {
   providers: UserProviderConfig[];
-  selected: UserProviderConfig | null;
-  onSelect: (id: string) => void;
+  selectedProvider: UserProviderConfig | null;
+  selectedModel: string | null;
+  onSelect: (providerId: string, model: string) => void;
   isStreaming?: boolean;
   isLoading?: boolean;
   onManageClick?: () => void;
@@ -36,7 +37,8 @@ function InitialDot({ label, size = 18 }: { label: string; size?: number }) {
 
 export default function ProviderDropdown({
   providers,
-  selected,
+  selectedProvider,
+  selectedModel,
   onSelect,
   isStreaming = false,
   isLoading = false,
@@ -100,13 +102,12 @@ export default function ProviderDropdown({
   };
 
   const grouped = useMemo(() => {
-    const acc: Record<string, UserProviderConfig[]> = {};
-    for (const p of providers) {
-      const h = hostOf(p.baseUrl);
-      if (!acc[h]) acc[h] = [];
-      acc[h].push(p);
-    }
-    return acc;
+    // Group by provider (label); each provider lists its own models.
+    return providers.map((p) => ({
+      provider: p,
+      host: hostOf(p.baseUrl),
+      models: Array.isArray(p.models) ? p.models : [],
+    }));
   }, [providers]);
 
   const disabled = isStreaming || isLoading || providers.length === 0;
@@ -124,10 +125,14 @@ export default function ProviderDropdown({
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         aria-label={t("provider.select")}
-        title={selected ? `${selected.label} — ${selected.model}` : t("provider.select")}
+        title={
+          selectedProvider && selectedModel
+            ? `${selectedProvider.label} — ${selectedModel}`
+            : t("provider.select")
+        }
       >
-        {selected ? (
-          <InitialDot label={selected.label} size={20} />
+        {selectedProvider ? (
+          <InitialDot label={selectedProvider.label} size={20} />
         ) : (
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="3" />
@@ -150,38 +155,35 @@ export default function ProviderDropdown({
             <div className="px-3 py-4 text-[13px] text-text-secondary">{t("providers.loading")}</div>
           ) : (
             providers.length > 0 &&
-            Object.entries(grouped).map(([host, entries]) => (
-              <div key={host} className="mb-2 last:mb-0">
-                <div className="px-2 py-1 mb-1 text-[11px] font-bold tracking-wider text-text-secondary uppercase truncate" title={host}>
-                  {host}
+            grouped.map(({ provider, host, models }) => (
+              <div key={provider.id} className="mb-2 last:mb-0">
+                <div className="px-2 py-1 mb-1 text-[11px] font-bold tracking-wider text-text-secondary uppercase truncate" title={`${provider.label} · ${host}`}>
+                  {provider.label}
                 </div>
                 <div className="space-y-1">
-                  {entries.map((entry) => {
-                    const isActive = selected?.id === entry.id;
+                  {models.map((model) => {
+                    const isActive = selectedProvider?.id === provider.id && selectedModel === model;
                     return (
                       <button
-                        key={entry.id}
+                        key={`${provider.id}:${model}`}
                         type="button"
                         role="option"
                         aria-selected={isActive}
                         onClick={() => {
-                          onSelect(entry.id);
+                          onSelect(provider.id, model);
                           setIsOpen(false);
                         }}
                         className={`w-full flex items-center gap-3 px-2 py-2 rounded-lg transition-colors text-left ${
                           isActive ? "bg-surface-raised" : "hover:bg-surface-raised"
                         }`}
-                        title={`${entry.label} — ${entry.model}`}
+                        title={`${provider.label} — ${model}`}
                       >
                         <div className="shrink-0">
-                          <InitialDot label={entry.label} size={18} />
+                          <InitialDot label={provider.label} size={18} />
                         </div>
                         <div className="flex-1 min-w-0 flex flex-col">
-                          <span className="text-[13px] font-medium text-text-primary truncate leading-tight">
-                            {entry.label}
-                          </span>
                           <span className="text-[11px] text-text-secondary truncate font-mono">
-                            {entry.model}
+                            {model}
                           </span>
                         </div>
                         {isActive && (

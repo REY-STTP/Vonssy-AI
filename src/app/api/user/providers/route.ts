@@ -7,9 +7,9 @@ import {
   normalizeBaseUrl,
   validateApiKey,
   validateLabel,
-  validateModelId,
+  validateModelIds,
 } from "@/lib/user-providers/validation";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { assertBaseUrlAllowed } from "@/lib/ssrf-guard";
 
 // D6: per-user mutable data — never cache.
@@ -29,7 +29,7 @@ export async function GET() {
       label: userAiModels.label,
       baseUrl: userAiModels.baseUrl,
       apiKeyHint: userAiModels.apiKeyHint,
-      model: userAiModels.model,
+      models: userAiModels.models,
       createdAt: userAiModels.createdAt,
       updatedAt: userAiModels.updatedAt,
     })
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.id) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  let body: { label?: string; baseUrl?: string; apiKey?: string; model?: string };
+  let body: { label?: string; baseUrl?: string; apiKey?: string; models?: string[]; model?: string };
   try {
     body = await request.json();
   } catch {
@@ -55,7 +55,10 @@ export async function POST(request: Request) {
     const label = validateLabel(body.label ?? "");
     const baseUrl = normalizeBaseUrl(body.baseUrl ?? "");
     const apiKey = validateApiKey(body.apiKey ?? "");
-    const model = validateModelId(body.model ?? "");
+    // Accept the legacy single `model` field as a one-item list.
+    const models = validateModelIds(
+      body.models ?? (body.model !== undefined ? [body.model] : [])
+    );
 
     // A3: DNS-level SSRF check at write time, not only at use time.
     try {
@@ -82,12 +85,12 @@ export async function POST(request: Request) {
         and(
           eq(userAiModels.userId, session.user.id),
           eq(userAiModels.baseUrl, baseUrl),
-          eq(userAiModels.model, model)
+          sql`${userAiModels.models} && ${models}`
         )
       )
       .limit(1);
     if (dup.length > 0) {
-      return Response.json({ error: "A provider with this URL and model ID already exists." }, { status: 409 });
+      return Response.json({ error: "A provider with this URL already lists one of these models." }, { status: 409 });
     }
 
     const [row] = await db
@@ -98,14 +101,14 @@ export async function POST(request: Request) {
         baseUrl,
         apiKeyEncrypted: encryptApiKey(apiKey),
         apiKeyHint: maskApiKey(apiKey),
-        model,
+        models,
       })
       .returning({
         id: userAiModels.id,
         label: userAiModels.label,
         baseUrl: userAiModels.baseUrl,
         apiKeyHint: userAiModels.apiKeyHint,
-        model: userAiModels.model,
+        models: userAiModels.models,
         createdAt: userAiModels.createdAt,
         updatedAt: userAiModels.updatedAt,
       });

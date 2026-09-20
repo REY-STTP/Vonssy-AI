@@ -7,7 +7,7 @@ import {
   normalizeBaseUrl,
   validateApiKey,
   validateLabel,
-  validateModelId,
+  validateModelIds,
 } from "@/lib/user-providers/validation";
 import { assertBaseUrlAllowed } from "@/lib/ssrf-guard";
 import { isUuid } from "@/lib/validate-uuid";
@@ -28,7 +28,7 @@ function toPublic(row: typeof userAiModels.$inferSelect) {
     label: row.label,
     baseUrl: row.baseUrl,
     apiKeyHint: row.apiKeyHint,
-    model: row.model,
+    models: row.models,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -52,7 +52,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const row = await owned(id, session.user.id);
   if (!row) return Response.json({ error: "Not found." }, { status: 404 });
 
-  let body: { label?: string; baseUrl?: string; apiKey?: string; model?: string };
+  let body: { label?: string; baseUrl?: string; apiKey?: string; models?: string[]; model?: string };
   try {
     body = await request.json();
   } catch {
@@ -68,7 +68,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       await assertBaseUrlAllowed(normalized);
       patch.baseUrl = normalized;
     }
-    if (body.model !== undefined) patch.model = validateModelId(body.model);
+    if (body.models !== undefined || body.model !== undefined) {
+      patch.models = validateModelIds(
+        body.models ?? (body.model !== undefined ? [body.model] : [])
+      );
+    }
     if (body.apiKey !== undefined && body.apiKey !== "") {
       const key = validateApiKey(body.apiKey);
       patch.apiKeyEncrypted = encryptApiKey(key);

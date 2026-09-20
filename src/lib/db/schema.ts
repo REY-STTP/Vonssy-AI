@@ -176,7 +176,10 @@ export const userAiModels = pgTable(
     baseUrl: text("base_url").notNull(),
     apiKeyEncrypted: text("api_key_encrypted").notNull(),
     apiKeyHint: text("api_key_hint").notNull(),
-    model: text("model").notNull(),
+    // Multi-model providers: one endpoint + key serving N model IDs.
+    // Backfilled from the legacy `model` column by 0012 (which is left
+    // in place, unused, so the migration stays re-runnable).
+    models: text("models").array().notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
   },

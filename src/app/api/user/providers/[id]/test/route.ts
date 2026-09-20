@@ -31,6 +31,11 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
     return Response.json({ ok: false, error: "Stored key is corrupted. Please save it again." }, { status: 400 });
   }
 
+  if (!row.models || row.models.length < 1) {
+    return Response.json({ ok: false, error: "This provider has no models. Add one in Settings." });
+  }
+  const testModel = row.models[0];
+
   try {
     await assertBaseUrlAllowed(row.baseUrl);
   } catch (err) {
@@ -45,7 +50,7 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
-        model: row.model,
+        model: testModel,
         messages: [{ role: "user", content: "ping" }],
         max_tokens: 5,
       }),

@@ -44,6 +44,27 @@ export function validateModelId(model: string): string {
   return t;
 }
 
+export const MAX_MODELS_PER_PROVIDER = 20;
+
+export function validateModelIds(models: unknown): string[] {
+  if (!Array.isArray(models)) throw new Error("Models must be an array of model IDs.");
+  if (models.length < 1) throw new Error("At least one model ID is required.");
+  if (models.length > MAX_MODELS_PER_PROVIDER) {
+    throw new Error(`Too many models (max ${MAX_MODELS_PER_PROVIDER} per provider).`);
+  }
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const m of models) {
+    const id = validateModelId(typeof m === "string" ? m : "");
+    if (!seen.has(id)) {
+      seen.add(id);
+      out.push(id);
+    }
+  }
+  if (out.length < 1) throw new Error("At least one model ID is required.");
+  return out;
+}
+
 export function validateApiKey(key: string): string {
   if (!key || key.length < 1 || key.length > 500) {
     throw new Error("API key must be 1..500 characters.");

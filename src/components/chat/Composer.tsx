@@ -9,7 +9,8 @@ import { useLocale } from "@/hooks/useLocale";
 interface ComposerProps {
   providers: UserProviderConfig[];
   selectedProvider: UserProviderConfig | null;
-  onProviderSelect: (id: string) => void;
+  selectedModel: string | null;
+  onProviderSelect: (providerId: string, model: string) => void;
   onSend: (content: string, options?: { reasoningEffort?: ReasoningEffort }) => void;
   onStop: () => void;
   isStreaming: boolean;
@@ -23,6 +24,7 @@ interface ComposerProps {
 function Composer({
   providers,
   selectedProvider,
+  selectedModel,
   onProviderSelect,
   onSend,
   onStop,
@@ -58,7 +60,7 @@ function Composer({
     // the initial height is measured while disabled with the
     // "loading" placeholder, and on narrow mobile widths
     // that measurement must not stick after the short placeholder arrives.
-  }, [content, isProvidersLoading, selectedProvider]);
+  }, [content, isProvidersLoading, selectedProvider, selectedModel]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -84,7 +86,7 @@ function Composer({
 
   // Without a provider the composer stays open for typing (always the
   // normal placeholder), but sending is disabled until one is selected.
-  const noProvider = !isProvidersLoading && !selectedProvider;
+  const noProvider = !isProvidersLoading && (!selectedProvider || !selectedModel);
   const sendDisabled = !content.trim() || disabled || isStreaming || noProvider || isProvidersLoading;
   const placeholder = t("composer.placeholder");
 
@@ -130,10 +132,11 @@ function Composer({
           {/* Row 2: provider picker + reasoning + send */}
           <div className="flex items-center justify-between gap-2 pt-1">
             <div className="shrink-0 z-20 min-w-0">
-              <ProviderDropdown
-                providers={providers}
-                selected={selectedProvider}
-                onSelect={onProviderSelect}
+            <ProviderDropdown
+              providers={providers}
+              selectedProvider={selectedProvider}
+              selectedModel={selectedModel}
+              onSelect={onProviderSelect}
                 isStreaming={isStreaming}
                 isLoading={isProvidersLoading}
                 onManageClick={onManageProviders}

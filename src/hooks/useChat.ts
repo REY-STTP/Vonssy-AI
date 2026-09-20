@@ -24,6 +24,7 @@ interface TokenUsage {
 interface UseChatOptions {
   sessionId: string | null;
   selectedProvider: UserProviderConfig | null;
+  selectedModel: string | null;
   onSessionCreated?: (sessionId: string) => void;
   onMessageComplete?: () => void;
 }
@@ -31,6 +32,7 @@ interface UseChatOptions {
 export function useChat({
   sessionId,
   selectedProvider,
+  selectedModel,
   onSessionCreated,
   onMessageComplete,
 }: UseChatOptions) {
@@ -116,7 +118,7 @@ export function useChat({
 
   const sendMessage = useCallback(
     async (content: string, options?: SendMessageOptions) => {
-      if (!selectedProvider) {
+      if (!selectedProvider || !selectedModel) {
         toast.error("Add a provider first in Settings → Providers.");
         return;
       }
@@ -171,6 +173,7 @@ export function useChat({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             providerId: selectedProvider.id,
+            model: selectedModel,
             messages: apiMessages,
             chatSessionId: currentSessionIdRef.current,
             truncatePointMessageId: options?.truncatePointMessageId,
@@ -275,7 +278,7 @@ export function useChat({
             role: "assistant",
             content: fullAssistantContent,
             provider: selectedProvider.label,
-            model: selectedProvider.model,
+            model: selectedModel,
             createdAt: new Date().toISOString(),
           };
 
@@ -320,7 +323,7 @@ export function useChat({
         // authoritative. Server UUIDs arrive on next session load.
       }
     },
-    [selectedProvider, onSessionCreated, onMessageComplete, cancelStreamingFlush]
+    [selectedProvider, selectedModel, onSessionCreated, onMessageComplete, cancelStreamingFlush]
   );
 
   const stopGeneration = useCallback(() => {

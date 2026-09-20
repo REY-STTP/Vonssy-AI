@@ -41,6 +41,7 @@ export async function POST(request: NextRequest) {
 
   let body: {
     providerId: string;
+    model?: string;
     messages: Array<{ role: string; content: string }>;
     chatSessionId?: string;
     truncatePointMessageId?: string;
@@ -193,7 +194,30 @@ export async function POST(request: NextRequest) {
   }
 
   const providerLabel = providerConfig.label;
-  const modelId = providerConfig.model;
+  // The client chooses one of the provider's models; membership is enforced
+  // so a leaked/guessed providerId can't be pointed at arbitrary models.
+  // Falls back to the provider's first model for older clients.
+  const configuredModels = Array.isArray(providerConfig.models) ? providerConfig.models : [];
+  const requestedModel = typeof body.model === "string" ? body.model.trim() : "";
+  if (requestedModel.length > 200) {
+    return new Response(
+      JSON.stringify({ error: "Model ID too long (max 200 characters)." }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
+  if (requestedModel && !configuredModels.includes(requestedModel)) {
+    return new Response(
+      JSON.stringify({ error: "Unknown model for this provider." }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
+  const modelId = requestedModel || configuredModels[0];
+  if (!modelId) {
+    return new Response(
+      JSON.stringify({ error: "This provider has no models. Add one in Settings." }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
 
   const startTime = Date.now();
   const encoder = new TextEncoder();
