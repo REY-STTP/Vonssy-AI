@@ -77,7 +77,9 @@ export function useChat({
   const loadAbortRef = useRef<AbortController | null>(null);
 
   // D4: abortable load — fast session switches can't resolve out of order.
-  const loadMessages = useCallback(async (sid: string) => {
+  // With onlyIfCurrent, a late resolve is dropped when the user has moved
+  // to another session (used by the abort/error heal path below).
+  const loadMessages = useCallback(async (sid: string, opts?: { onlyIfCurrent?: boolean }) => {
     loadAbortRef.current?.abort();
     const ctrl = new AbortController();
     loadAbortRef.current = ctrl;
@@ -85,6 +87,7 @@ export function useChat({
       const res = await fetch(`/api/sessions/${sid}`, { signal: ctrl.signal });
       if (!res.ok) return;
       const data = await res.json();
+      if (opts?.onlyIfCurrent && currentSessionIdRef.current !== sid) return;
       setMessages(
         data.messages.map((m: Record<string, unknown>) => ({
           id: m.id as string,
@@ -122,10 +125,20 @@ export function useChat({
         toast.error("Add a provider first in Settings → Providers.");
         return;
       }
+      // A stream is already in flight (double-clicked regenerate, edit
+      // while streaming, …). A second send would compute truncate indices
+      // against a shifting list and append a duplicate response.
+      if (abortControllerRef.current) {
+        toast.error("Please wait for the current response to finish.");
+        return;
+      }
       cancelStreamingFlush();
       setStreamingContent("");
       setIsStreaming(true);
       serverIdsRef.current = { user: null, assistant: null };
+      // Session + controller captured so the abort/error heal below only
+      // reloads when nothing newer (new send, session switch) superseded us.
+      const sendSessionId = currentSessionIdRef.current;
 
       if (options?.truncateIndex !== undefined) {
         setTruncationIndex(options.truncateIndex);
@@ -135,6 +148,8 @@ export function useChat({
       const history = messagesRef.current;
       // Temp id of the optimistic user bubble (null in truncate flows).
       let pendingUserId: string | null = null;
+      // Becomes true once the early ids-event swap below runs.
+      let userIdSwapped = false;
 
       if (options?.truncateIndex !== undefined) {
         const sliced = history.slice(0, options.truncateIndex + 1);
@@ -228,6 +243,20 @@ export function useChat({
                     ? parsed.assistantMessageId
                     : null,
               };
+              // Swap the optimistic user id immediately: abort/error paths
+              // skip the completion swap below, and without this the bubble
+              // keeps its temp id so a later regenerate/edit degrades to an
+              // appending fresh send (duplicate UI + duplicate server row).
+              const realUserId =
+                typeof parsed.userMessageId === "string" ? parsed.userMessageId : null;
+              if (realUserId && pendingUserId && !userIdSwapped) {
+                userIdSwapped = true;
+                const tempId = pendingUserId;
+                pendingUserId = null;
+                setMessages((prev) =>
+                  prev.map((m) => (m.id === tempId ? { ...m, id: realUserId } : m))
+                );
+              }
             }
 
             if (parsed.type === "error") {
@@ -303,14 +332,21 @@ export function useChat({
           });
         }
       } catch (err: unknown) {
-        if (err instanceof Error && err.name === "AbortError") {
-          // User stopped generation — not an error
-        } else {
+        const wasAbort = err instanceof Error && err.name === "AbortError";
+        if (!wasAbort) {
           toast.error(
             err instanceof Error
               ? err.message
               : "An unexpected error occurred."
           );
+        }
+        // Heal unconfirmed temp ids: abort/failed streams skip the
+        // completion swap, so without this a later regenerate/edit sees a
+        // temp id and degrades to an appending fresh send (duplicate UI).
+        // Reload is skipped when a newer send superseded us or the user
+        // already switched sessions (onlyIfCurrent).
+        if (sendSessionId && abortControllerRef.current === abortController) {
+          loadMessages(sendSessionId, { onlyIfCurrent: true });
         }
       } finally {
         cancelStreamingFlush();
@@ -323,7 +359,7 @@ export function useChat({
         // authoritative. Server UUIDs arrive on next session load.
       }
     },
-    [selectedProvider, selectedModel, onSessionCreated, onMessageComplete, cancelStreamingFlush]
+    [selectedProvider, selectedModel, onSessionCreated, onMessageComplete, cancelStreamingFlush, loadMessages]
   );
 
   const stopGeneration = useCallback(() => {
