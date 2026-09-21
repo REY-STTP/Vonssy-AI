@@ -22,6 +22,11 @@ export function useAllChats() {
   const cursorRef = useRef<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  // Generation counter + loading mirror: concurrent/overlapping requests
+  // (fast filter changes, double-fired observer) must not clobber each
+  // other's cursor, results, or loading flag.
+  const requestIdRef = useRef(0);
+  const loadingRef = useRef(false);
 
   // Use refs for search/filter so fetchPage doesn't need them as deps
   const searchRef = useRef(search);
@@ -35,11 +40,13 @@ export function useAllChats() {
    */
   const fetchPage = useCallback(
     async (cursor: string | null, append: boolean) => {
+      const requestId = ++requestIdRef.current;
       // Abort any in-flight request to prevent race conditions
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
 
+      loadingRef.current = true;
       setIsLoading(true);
       try {
         const params = new URLSearchParams();
@@ -53,6 +60,9 @@ export function useAllChats() {
         });
         if (!res.ok) return;
         const data = await res.json();
+
+        // Drop stale resolves (aborted late or superseded by a newer query).
+        if (requestIdRef.current !== requestId) return;
 
         setSessions((prev) => {
           if (!append) return data.sessions;
@@ -68,7 +78,11 @@ export function useAllChats() {
         // Ignore intentional aborts; surface real errors if needed
         if ((err as Error).name === "AbortError") return;
       } finally {
-        setIsLoading(false);
+        // Only the latest request may clear the loading flag.
+        if (requestIdRef.current === requestId) {
+          loadingRef.current = false;
+          setIsLoading(false);
+        }
       }
     },
     [] // stable — reads search/filter from refs, not state
@@ -78,9 +92,11 @@ export function useAllChats() {
    * Load the next page (called by IntersectionObserver).
    */
   const loadMore = useCallback(() => {
-    if (isLoading || !hasMore) return;
+    // Ref (not state): two rapid observer fires before the re-render
+    // would otherwise both pass the stale isLoading check with one cursor.
+    if (loadingRef.current || !hasMore) return;
     fetchPage(cursorRef.current, true);
-  }, [isLoading, hasMore, fetchPage]);
+  }, [hasMore, fetchPage]);
 
   /**
    * Reset and refetch from the beginning (used when modal opens).

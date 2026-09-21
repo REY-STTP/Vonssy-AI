@@ -101,6 +101,13 @@ export async function assertBaseUrlAllowed(baseUrl: string): Promise<void> {
   if (BLOCKED_HOSTS.has(host) || host.endsWith(".internal")) {
     throw new Error("That API host is not allowed.");
   }
+  // Defense in depth: keys must never travel cleartext. The write path
+  // (validation.ts) already rejects public http://, but the guard enforces
+  // it independently so no future caller can regress it.
+  const isLoopback = host === "localhost" || host === "127.0.0.1";
+  if (url.protocol !== "https:" && !(url.protocol === "http:" && isLoopback)) {
+    throw new Error("API URL must use https:// (http only for localhost).");
+  }
   const allowPrivate = process.env.ALLOW_PRIVATE_BASE_URL === "true";
   if (!allowPrivate) {
     if (host === "localhost" || host.endsWith(".local")) {

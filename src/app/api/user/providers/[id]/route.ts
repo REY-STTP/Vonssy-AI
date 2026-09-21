@@ -34,6 +34,9 @@ function toPublic(row: typeof userAiModels.$inferSelect) {
   };
 }
 
+// Config rows carry base URLs + key hints: never store (not just revalidate).
+const NO_STORE = { "Cache-Control": "private, no-store" };
+
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user?.id) return Response.json({ error: "Unauthorized" }, { status: 401 });
@@ -41,7 +44,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   if (!isUuid(id)) return Response.json({ error: "Not found." }, { status: 404 });
   const row = await owned(id, session.user.id);
   if (!row) return Response.json({ error: "Not found." }, { status: 404 });
-  return Response.json({ provider: toPublic(row) });
+  return Response.json({ provider: toPublic(row) }, { headers: NO_STORE });
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -83,7 +86,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       .set(patch)
       .where(and(eq(userAiModels.id, id), eq(userAiModels.userId, session.user.id)))
       .returning();
-    return Response.json({ provider: toPublic(updated) });
+    return Response.json({ provider: toPublic(updated) }, { headers: NO_STORE });
   } catch (err) {
     return Response.json(
       { error: err instanceof Error ? err.message : "Validation failed." },

@@ -126,9 +126,16 @@ export class OpenAICompatibleGateway implements AIProvider {
       err.error?.message ?? err.message ?? "Unknown gateway error";
 
     if (is429) {
+      // Capacity message stays generic: the upstream text is attacker-
+      // influenced (user-configured endpoint) and must not reach the UI
+      // verbatim — same E6 policy as every other error path.
+      console.error(
+        `[gateway:${this.name}] upstream rate-limited:`,
+        redactSecrets(message).slice(0, 500)
+      );
       yield {
         type: "error",
-        error: `This model is temporarily at capacity. ${message}`,
+        error: "This model is temporarily at capacity. Please try again shortly.",
         isRateLimited: true,
       };
     } else {

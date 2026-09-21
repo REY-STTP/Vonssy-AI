@@ -117,7 +117,7 @@ export default function ChatClient({ user, initialSessionId }: ChatClientProps) 
   }, [activeSessionId, loadMessages, clearMessages]);
 
   const handleNewChat = useCallback(() => {
-    router.push("/");
+    router.push("/chat");
   }, [router]);
 
   const handleSelectSession = useCallback(
@@ -130,9 +130,10 @@ export default function ChatClient({ user, initialSessionId }: ChatClientProps) 
 
   const handleDeleteSession = useCallback(
     async (id: string) => {
-      await deleteSession(id);
-      if (activeSessionId === id) {
-        router.push("/");
+      const ok = await deleteSession(id);
+      // Stay put when the delete failed (the session was restored above).
+      if (ok && activeSessionId === id) {
+        router.push("/chat");
       }
     },
     [deleteSession, activeSessionId, router]
@@ -167,9 +168,11 @@ export default function ChatClient({ user, initialSessionId }: ChatClientProps) 
   const openManageProviders = useCallback(() => handleOpenSettings("providers"), [handleOpenSettings]);
   const openProfileSettings = useCallback(() => handleOpenSettings("profile"), [handleOpenSettings]);
 
-  const composer = (key: string) => (
+  // Single key for both welcome/thread slots: switching between them must
+  // NOT remount (that would wipe the in-progress draft when history loads).
+  const composer = (
     <Composer
-      key={key}
+      key="composer"
       providers={providers}
       selectedProvider={selectedProvider}
       selectedModel={selectedModel}
@@ -249,7 +252,7 @@ export default function ChatClient({ user, initialSessionId }: ChatClientProps) 
                 </p>
               </div>
               <div className="w-full max-w-2xl">
-                {composer("welcome")}
+                {composer}
               </div>
             </div>
           ) : (
@@ -264,7 +267,7 @@ export default function ChatClient({ user, initialSessionId }: ChatClientProps) 
                 onFeedback={setFeedback}
                 displayName={user.preferredName || user.name}
               />
-              {composer("thread")}
+              {composer}
             </>
           )}
         </div>

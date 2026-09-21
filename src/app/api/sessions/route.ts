@@ -92,13 +92,21 @@ export async function POST(request: NextRequest) {
   );
   if (!sessionThrottle.allowed) return throttleResponse(sessionThrottle);
 
-  // C2: length caps (DB bloat / UI breakage guard).
+  // C2: length caps (DB bloat / UI breakage guard). Non-strings are
+  // rejected instead of crashing on .slice (500).
+  const title = body.title === undefined || body.title === null ? "New Chat" : body.title;
+  const modelProvider = body.modelProvider === undefined || body.modelProvider === null
+    ? undefined
+    : body.modelProvider;
+  if (typeof title !== "string" || (modelProvider !== undefined && typeof modelProvider !== "string")) {
+    return Response.json({ error: "title and modelProvider must be strings." }, { status: 400 });
+  }
   const [newSession] = await db
     .insert(chatSessions)
     .values({
       userId: session.user.id,
-      title: (body.title || "New Chat").slice(0, 120),
-      modelProvider: body.modelProvider?.slice(0, 200),
+      title: (title || "New Chat").slice(0, 120),
+      modelProvider: modelProvider?.slice(0, 200),
     })
     .returning();
 

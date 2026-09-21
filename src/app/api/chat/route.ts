@@ -545,7 +545,8 @@ export async function POST(request: NextRequest) {
   return new Response(stream, {
     headers: {
       "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache, no-transform",
+      // Chat transcripts are sensitive: never store (not just revalidate).
+      "Cache-Control": "private, no-store, no-transform",
       Connection: "keep-alive",
       "X-Accel-Buffering": "no",
     },

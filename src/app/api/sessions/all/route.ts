@@ -4,6 +4,7 @@ import { db } from "@/lib/db/client";
 import { chatSessions } from "@/lib/db/schema";
 import { eq, desc, and, sql } from "drizzle-orm";
 import { ALL_CHATS_PAGE_SIZE } from "@/lib/constants";
+import { isUuid } from "@/lib/validate-uuid";
 
 // D6: per-user mutable data — never cache.
 export const dynamic = "force-dynamic";
@@ -59,16 +60,21 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Cursor: (updated_at, id) < (cursor_ts, cursor_id)
+  // Cursor: (updated_at, id) < (cursor_ts, cursor_id).
+  // Both parts are validated first — raw casts of attacker input 500.
   if (cursorParam) {
     const separatorIndex = cursorParam.lastIndexOf("_");
-    if (separatorIndex > 0) {
-      const cursorTs = cursorParam.substring(0, separatorIndex);
-      const cursorId = cursorParam.substring(separatorIndex + 1);
-      conditions.push(
-        sql`(${chatSessions.updatedAt}, ${chatSessions.id}) < (${cursorTs}::timestamptz, ${cursorId}::uuid)`
-      );
+    if (separatorIndex <= 0) {
+      return Response.json({ error: "Invalid cursor." }, { status: 400 });
     }
+    const cursorTs = cursorParam.substring(0, separatorIndex);
+    const cursorId = cursorParam.substring(separatorIndex + 1);
+    if (Number.isNaN(Date.parse(cursorTs)) || !isUuid(cursorId)) {
+      return Response.json({ error: "Invalid cursor." }, { status: 400 });
+    }
+    conditions.push(
+      sql`(${chatSessions.updatedAt}, ${chatSessions.id}) < (${cursorTs}::timestamptz, ${cursorId}::uuid)`
+    );
   }
 
   const rows = await db

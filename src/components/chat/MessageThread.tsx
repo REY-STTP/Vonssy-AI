@@ -126,7 +126,13 @@ function MessageThread({
   };
 
   const copyMessage = async (content: string, id: string) => {
-    await navigator.clipboard.writeText(content);
+    try {
+      await navigator.clipboard.writeText(content);
+    } catch {
+      // Clipboard denied/unavailable (permissions, insecure context) —
+      // leave the button state unchanged instead of rejecting unhandled.
+      return;
+    }
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
   };

@@ -57,33 +57,13 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
       signal: controller.signal,
       redirect: "manual" as const,
     };
-    let res = await fetch(endpoint, payload);
-    // Allow at most ONE re-validated hop; never follow blindly (SSRF).
+    const res = await fetch(endpoint, payload);
+    // A2: never follow upstream redirects — the test request carries the
+    // user's Authorization header, which must not be forwarded to a
+    // redirect target (same policy as the chat route's no-redirect fetch).
     if (res.status >= 300 && res.status < 400) {
-      const location = res.headers.get("location");
-      let nextUrl: URL;
-      try {
-        if (!location) throw new Error("empty");
-        nextUrl = new URL(location, endpoint);
-      } catch {
-        clearTimeout(timer);
-        return Response.json({ ok: false, error: "Upstream redirect blocked for safety." });
-      }
-      if (nextUrl.protocol !== "https:") {
-        clearTimeout(timer);
-        return Response.json({ ok: false, error: "Upstream redirect blocked for safety." });
-      }
-      try {
-        await assertBaseUrlAllowed(nextUrl.origin);
-      } catch {
-        clearTimeout(timer);
-        return Response.json({ ok: false, error: "Upstream redirect blocked for safety." });
-      }
-      res = await fetch(nextUrl.toString(), { ...payload, redirect: "manual" as const });
-      if (res.status >= 300 && res.status < 400) {
-        clearTimeout(timer);
-        return Response.json({ ok: false, error: "Upstream redirect blocked for safety." });
-      }
+      clearTimeout(timer);
+      return Response.json({ ok: false, error: "Upstream redirect blocked for safety." });
     }
     clearTimeout(timer);
     if (!res.ok) {

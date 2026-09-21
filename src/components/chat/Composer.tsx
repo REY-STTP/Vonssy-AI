@@ -101,6 +101,9 @@ function Composer({
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    // Don't submit while an IME composition is in progress (CJK etc.):
+    // Enter confirms the composition candidate, it isn't a send intent.
+    if (e.nativeEvent.isComposing) return;
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();

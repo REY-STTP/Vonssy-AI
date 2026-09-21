@@ -79,22 +79,35 @@ export function useChat({
   // Navigation now remounts per session (/chat/[id]): abort any in-flight
   // stream and message load on unmount so orphan requests can't resolve
   // into the wrong instance (and to stop burning provider tokens).
+  // Streaming renders are rAF-batched, so also drop a pending frame.
   useEffect(() => {
     return () => {
       abortControllerRef.current?.abort();
       loadAbortRef.current?.abort();
+      cancelStreamingFlush();
     };
-  }, []);
+  }, [cancelStreamingFlush]);
 
   // D4: abortable load — fast session switches can't resolve out of order.
   // With onlyIfCurrent, a late resolve is dropped when the user has moved
   // to another session (used by the abort/error heal path below).
   const loadMessages = useCallback(async (sid: string, opts?: { onlyIfCurrent?: boolean }) => {
+    // Guard FIRST: a stale heal must neither abort the new session's load
+    // nor resolve into it — check before touching the shared abort ref.
+    if (opts?.onlyIfCurrent && currentSessionIdRef.current !== sid) return;
     loadAbortRef.current?.abort();
     const ctrl = new AbortController();
     loadAbortRef.current = ctrl;
     try {
       const res = await fetch(`/api/sessions/${sid}`, { signal: ctrl.signal });
+      if (res.status === 404) {
+        // Session deleted/never existed: don't leave the previous
+        // session's messages painted under the new id.
+        if (!opts?.onlyIfCurrent || currentSessionIdRef.current === sid) {
+          setMessages([]);
+        }
+        return;
+      }
       if (!res.ok) return;
       const data = await res.json();
       if (opts?.onlyIfCurrent && currentSessionIdRef.current !== sid) return;
@@ -340,6 +353,16 @@ export function useChat({
               return m;
             });
           });
+        } else if (
+          options?.editContent &&
+          sendSessionId &&
+          abortControllerRef.current === abortController
+        ) {
+          // The optimistic edit was applied up-front, but the server only
+          // commits it (and the truncation) on success. Reload server truth
+          // so a failed/empty regeneration doesn't leave the rejected edit
+          // painted over the stored transcript.
+          loadMessages(sendSessionId, { onlyIfCurrent: true });
         }
       } catch (err: unknown) {
         const wasAbort = err instanceof Error && err.name === "AbortError";
@@ -446,6 +469,8 @@ export function useChat({
 
   const setFeedback = useCallback(
     async (messageId: string, feedback: "like" | "dislike" | null) => {
+      // Capture the pre-optimistic value so a failed PATCH truly rolls back.
+      const previous = messagesRef.current.find((m) => m.id === messageId)?.feedback ?? null;
       setMessages((prev) =>
         prev.map((m) =>
           m.id === messageId ? { ...m, feedback } : m
@@ -462,7 +487,7 @@ export function useChat({
       } catch {
         setMessages((prev) =>
           prev.map((m) =>
-            m.id === messageId ? { ...m, feedback: m.feedback } : m
+            m.id === messageId ? { ...m, feedback: previous } : m
           )
         );
       }

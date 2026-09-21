@@ -1,6 +1,6 @@
 import { db } from "@/lib/db/client";
 import { throttleBuckets } from "@/lib/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 
 export interface ThrottleCheck {
   allowed: boolean;
@@ -19,6 +19,7 @@ export async function checkThrottle(
   windowMs: number
 ): Promise<ThrottleCheck> {
   const now = new Date();
+  const cutoff = new Date(now.getTime() - windowMs);
 
   // Opportunistic sweep of stale buckets (~1% of calls, no cron needed).
   if (Math.random() < 0.01) {
@@ -28,48 +29,43 @@ export async function checkThrottle(
       .catch(() => undefined);
   }
 
+  // Atomic single statement: concurrent bursts serialize on the row lock,
+  // so N parallel requests can't all read the same count and slip through.
+  // Expired windows reset to 1 instead of incrementing.
+  // NOTE: raw sql fragments receive ISO strings, not Date objects —
+  // postgres.js cannot bind Date inside sql`` parameter slots.
+  const cutoffIso = cutoff.toISOString();
+  const nowIso = now.toISOString();
   const [row] = await db
-    .select()
-    .from(throttleBuckets)
-    .where(eq(throttleBuckets.bucketKey, key))
-    .limit(1);
+    .insert(throttleBuckets)
+    .values({ bucketKey: key, count: 1, windowStart: now })
+    .onConflictDoUpdate({
+      target: throttleBuckets.bucketKey,
+      set: {
+        count: sql`CASE WHEN ${throttleBuckets.windowStart} < ${cutoffIso} THEN 1 ELSE ${throttleBuckets.count} + 1 END`,
+        windowStart: sql`CASE WHEN ${throttleBuckets.windowStart} < ${cutoffIso} THEN ${nowIso} ELSE ${throttleBuckets.windowStart} END`,
+      },
+    })
+    .returning({
+      count: throttleBuckets.count,
+      windowStart: throttleBuckets.windowStart,
+    });
 
-  if (!row || now.getTime() - new Date(row.windowStart).getTime() >= windowMs) {
-    await db
-      .insert(throttleBuckets)
-      .values({ bucketKey: key, count: 1, windowStart: now })
-      .onConflictDoUpdate({
-        target: throttleBuckets.bucketKey,
-        set: { count: 1, windowStart: now },
-      });
-    return { allowed: true, limit, remaining: limit - 1, resetAfterMs: windowMs };
-  }
-
-  if (row.count >= limit) {
+  const elapsed = now.getTime() - new Date(row.windowStart).getTime();
+  if (row.count > limit) {
     return {
       allowed: false,
       limit,
       remaining: 0,
-      resetAfterMs: Math.max(
-        0,
-        windowMs - (now.getTime() - new Date(row.windowStart).getTime())
-      ),
+      resetAfterMs: Math.max(0, windowMs - elapsed),
     };
   }
-
-  await db
-    .update(throttleBuckets)
-    .set({ count: sql`${throttleBuckets.count} + 1` })
-    .where(eq(throttleBuckets.bucketKey, key));
 
   return {
     allowed: true,
     limit,
-    remaining: Math.max(0, limit - row.count - 1),
-    resetAfterMs: Math.max(
-      0,
-      windowMs - (now.getTime() - new Date(row.windowStart).getTime())
-    ),
+    remaining: Math.max(0, limit - row.count),
+    resetAfterMs: Math.max(0, windowMs - elapsed),
   };
 }
 

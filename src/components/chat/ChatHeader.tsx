@@ -28,7 +28,7 @@ export default function ChatHeader({
   const renameInputRef = useRef<HTMLInputElement>(null);
   const { t } = useLocale();
 
-  // Close menu on outside click
+  // Close menu on outside click or Escape (returning focus to the trigger).
   useEffect(() => {
     if (!menuOpen) return;
     const handler = (e: MouseEvent) => {
@@ -41,8 +41,18 @@ export default function ChatHeader({
         setMenuOpen(false);
       }
     };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setMenuOpen(false);
+        menuBtnRef.current?.focus();
+      }
+    };
     document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", handler);
+      document.removeEventListener("keydown", onKey);
+    };
   }, [menuOpen]);
 
   // Focus rename input when entering rename mode

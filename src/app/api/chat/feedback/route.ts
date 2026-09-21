@@ -39,33 +39,25 @@ export async function PATCH(request: NextRequest) {
     );
   }
 
-  // Verify ownership: message → chatSession → user
+  // Verify ownership in ONE scoped query: message → chatSession → user.
+  // A single 404 for both "missing" and "someone else's" so message ids
+  // can't be probed for existence (same convention as every other route).
   const [msg] = await db
     .select({
       id: messages.id,
-      chatSessionId: messages.chatSessionId,
     })
     .from(messages)
-    .where(eq(messages.id, messageId))
-    .limit(1);
-
-  if (!msg) {
-    return Response.json({ error: "Message not found" }, { status: 404 });
-  }
-
-  const [chatSession] = await db
-    .select({ userId: chatSessions.userId })
-    .from(chatSessions)
+    .innerJoin(chatSessions, eq(messages.chatSessionId, chatSessions.id))
     .where(
       and(
-        eq(chatSessions.id, msg.chatSessionId),
+        eq(messages.id, messageId),
         eq(chatSessions.userId, session.user.id)
       )
     )
     .limit(1);
 
-  if (!chatSession) {
-    return Response.json({ error: "Not authorized" }, { status: 403 });
+  if (!msg) {
+    return Response.json({ error: "Message not found" }, { status: 404 });
   }
 
   // Update feedback

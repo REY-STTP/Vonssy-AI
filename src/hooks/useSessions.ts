@@ -121,9 +121,10 @@ export function useSessions() {
   /**
    * Delete a session.
    * Optimistic removal; refetch only on failure (D6 — no double fetch).
+   * Returns false when the server rejected the delete.
    */
   const deleteSession = useCallback(
-    async (id: string) => {
+    async (id: string): Promise<boolean> => {
       // Optimistic removal
       setSessions((prev) => {
         const next = prev.filter((s) => s.id !== id);
@@ -138,9 +139,12 @@ export function useSessions() {
         if (!res.ok) {
           // Revert on failure
           await fetchSessions();
+          return false;
         }
+        return true;
       } catch {
         await fetchSessions();
+        return false;
       }
     },
     [fetchSessions]

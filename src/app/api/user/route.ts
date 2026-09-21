@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db/client";
 import { users, chatSessions, messages, userAiModels } from "@/lib/db/schema";
+import { checkThrottle, throttleResponse } from "@/lib/throttle";
 import { eq, asc, inArray } from "drizzle-orm";
 
 /**
@@ -12,6 +13,10 @@ export async function GET() {
   if (!session?.user?.id) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  // E3: the export fans out over the user's full history — throttle it.
+  const exportThrottle = await checkThrottle(`export:${session.user.id}`, 10, 60 * 60 * 1000);
+  if (!exportThrottle.allowed) return throttleResponse(exportThrottle);
 
   const userId = session.user.id;
 
@@ -86,6 +91,11 @@ export async function DELETE() {
   if (!session?.user?.id) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  // E3: irreversible + cascading — throttle so a stolen session can't be
+  // sprayed (the UI already confirms; this is the server-side backstop).
+  const deleteThrottle = await checkThrottle(`delete-account:${session.user.id}`, 5, 60 * 60 * 1000);
+  if (!deleteThrottle.allowed) return throttleResponse(deleteThrottle);
 
   await db.delete(users).where(eq(users.id, session.user.id));
 
