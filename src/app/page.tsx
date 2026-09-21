@@ -8,10 +8,10 @@ export const metadata: Metadata = {
   title: "Login",
   description:
     "Sign in to VonssyAI with Google or GitHub to chat with your own OpenAI-compatible models.",
-  alternates: { canonical: "/login" },
+  alternates: { canonical: "/" },
 };
 
-export default function LoginPage() {
+export default function SignInPage() {
   return (
     <main className="min-h-dvh flex items-center justify-center bg-bg p-4 relative overflow-hidden">
       <LoginLanguageSelector />
@@ -51,7 +51,7 @@ export default function LoginPage() {
           <form
             action={async () => {
               "use server";
-              await signIn("google", { redirectTo: "/" });
+              await signIn("google", { redirectTo: "/chat" });
             }}
           >
             <button
@@ -66,7 +66,7 @@ export default function LoginPage() {
           <form
             action={async () => {
               "use server";
-              await signIn("github", { redirectTo: "/" });
+              await signIn("github", { redirectTo: "/chat" });
             }}
           >
             <button

@@ -13,22 +13,22 @@ export const authConfig: NextAuthConfig = {
   providers: [Google({}), GitHub({})],
 
   pages: {
-    signIn: "/login",
-    error: "/login",
+    signIn: "/",
+    error: "/",
   },
 
   callbacks: {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
-      const isOnChat = nextUrl.pathname === "/" || nextUrl.pathname.startsWith("/chat");
-      const isOnLogin = nextUrl.pathname === "/login";
+      const isOnChat = nextUrl.pathname.startsWith("/chat");
+      const isOnGate = nextUrl.pathname === "/";
 
       if (isOnChat && !isLoggedIn) {
-        return false; // Redirect to login
+        return false; // Redirect to sign-in gate
       }
 
-      if (isOnLogin && isLoggedIn) {
-        return Response.redirect(new URL("/", nextUrl));
+      if (isOnGate && isLoggedIn) {
+        return Response.redirect(new URL("/chat", nextUrl));
       }
 
       return true;

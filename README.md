@@ -142,14 +142,13 @@ See [`.env.example`](.env.example) for the full list. Key variables:
 ```
 src/
 ├── app/
-│   ├── (auth)/login/           # Login page + language selector + theme toggle
-│   │   ├── page.tsx            # Server component with OAuth forms
-│   │   ├── LoginText.tsx       # i18n text components
-│   │   └── LoginLanguageSelector.tsx  # Language & theme toggle (client)
+│   ├── page.tsx              # Sign-in gate + language selector + theme toggle
+│   ├── LoginText.tsx         # i18n text components
+│   ├── LoginLanguageSelector.tsx  # Language & theme toggle (client)
 │   ├── (chat)/                 # Main chat interface
-│   │   ├── page.tsx            # New chat (auth gate, no active session)
-│   │   ├── chat/[id]/          # Per-session URL (server-validated id + title metadata)
-│   │   │   └── page.tsx        # Chat session page → ChatClient with initialSessionId
+│   │   ├── chat/                 # /chat (new chat) + /chat/[id] (session page)
+│   │   │   ├── page.tsx          # New chat (auth gate, no active session)
+│   │   │   └── [id]/page.tsx     # Per-session URL (server-validated id + title metadata)
 │   │   └── ChatClient.tsx      # Client orchestrator (sidebar, thread, composer)
 │   ├── api/
 │   │   ├── auth/[...nextauth]/ # NextAuth route handler

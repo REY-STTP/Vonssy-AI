@@ -24,6 +24,10 @@ const nextConfig: NextConfig = {
     formats: ["image/avif", "image/webp"],
     minimumCacheTTL: 86400,
   },
+  async redirects() {
+    // Legacy sign-in URL now lives at / — keep old bookmarks working.
+    return [{ source: "/login", destination: "/", permanent: false }];
+  },
   async headers() {
     // React/Turbopack dev needs eval() for debugging callstacks; it is
     // never used in production builds. Keep 'unsafe-eval' dev-only.

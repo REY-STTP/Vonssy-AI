@@ -11,7 +11,7 @@ import { auth } from "@/lib/auth";
  * database-session cookies.
  *
  * IMPORTANT (CVE-2025-29927): This proxy is a UX convenience
- * layer only — it redirects unauthenticated users to /login.
+  * layer only — it redirects unauthenticated users to the sign-in gate (/).
  * It does NOT serve as the sole auth check.
  * Every API route independently re-validates the session
  * server-side via auth() from @/lib/auth.
@@ -54,17 +54,17 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  // Redirect unauthenticated users from protected routes to login
-  const isProtectedRoute = pathname === "/" || pathname.startsWith("/chat");
+  // Redirect unauthenticated users from protected routes to the sign-in gate
+  const isProtectedRoute = pathname.startsWith("/chat");
   if (isProtectedRoute && !isLoggedIn) {
-    const loginUrl = new URL("/login", request.url);
+    const loginUrl = new URL("/", request.url);
     return NextResponse.redirect(loginUrl);
   }
 
-  // Redirect authenticated users away from login
-  const isAuthRoute = pathname === "/login";
+  // Redirect authenticated users away from the gate to the app
+  const isAuthRoute = pathname === "/";
   if (isAuthRoute && isLoggedIn) {
-    return NextResponse.redirect(new URL("/", request.url));
+    return NextResponse.redirect(new URL("/chat", request.url));
   }
 
   return NextResponse.next();

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
-import LoginLanguageSelector from "@/app/(auth)/login/LoginLanguageSelector";
+import LoginLanguageSelector from "@/app/LoginLanguageSelector";
 import { useLocale } from "@/hooks/useLocale";
 
 /**
@@ -12,7 +12,7 @@ import { useLocale } from "@/hooks/useLocale";
 export default function PublicDoc({
   title,
   brand,
-  backHref = "/login",
+  backHref = "/",
   backLabel,
   updated,
   children,

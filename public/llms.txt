@@ -6,7 +6,7 @@ VonssyAI is a chat app that talks to multiple AI models through one unified
 interface. Users connect their own endpoints (base URL + API key + model ID)
 under Settings → Providers. Keys are encrypted at rest (AES-256-GCM).
 
-- Public entry: /login
+- Public entry: / (sign-in gate)
 - About + FAQ: /about
 - Privacy Policy: /privacy
 - Terms of Service: /terms

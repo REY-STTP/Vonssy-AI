@@ -551,7 +551,7 @@ export default function SettingsModal({ isOpen, onClose, user, initialTab = "pro
     try {
       const res = await fetch("/api/user", { method: "DELETE" });
       if (res.ok) {
-        await signOut({ callbackUrl: "/login" });
+        await signOut({ callbackUrl: "/" });
       }
     } catch (err) {
       console.error("Delete error:", err);
@@ -1025,7 +1025,7 @@ export default function SettingsModal({ isOpen, onClose, user, initialTab = "pro
       {/* Sign out */}
       <button
         type="button"
-        onClick={() => signOut({ callbackUrl: "/login" })}
+          onClick={() => signOut({ callbackUrl: "/" })}
         className="btn-secondary w-full justify-center gap-2 text-sm"
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

@@ -10,7 +10,7 @@ const SITE_URL =
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();
   return [
-    { url: `${SITE_URL}/login`, lastModified: now },
+    { url: `${SITE_URL}/`, lastModified: now },
     { url: `${SITE_URL}/about`, lastModified: now },
     { url: `${SITE_URL}/privacy`, lastModified: now },
     { url: `${SITE_URL}/terms`, lastModified: now },
