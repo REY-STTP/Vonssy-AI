@@ -6,12 +6,12 @@ const SITE_URL =
 /**
  * Crawler policy.
  *
- * Private surfaces (chat root `/`, `/api/`) are kept out of search
- * results with an auth redirect + `noindex` (see `(chat)/layout.tsx`),
+ * Private surfaces (`/chat/*`, `/api/`) are kept out of search
+ * results with an auth redirect/gate + `noindex` (see `(chat)/layout.tsx`),
  * NOT with `Disallow: /`.
  *
  * Why no `Disallow: /`? When robots.txt blocks crawling, Googlebot can
- * never see the `noindex` tag or the login redirect, so it may index
+ * never see the `noindex` tag or the auth redirect, so it may index
  * the URL from link signals alone — exactly the Search Console warning
  * "Indexed, though blocked by robots.txt". Per Google docs, `noindex`
  * requires allowing the crawl. Only `/api/` is disallowed: JSON
