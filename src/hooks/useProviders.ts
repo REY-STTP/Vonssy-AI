@@ -41,6 +41,21 @@ function writeStoredModel(model: string | null) {
   else localStorage.removeItem(MODEL_STORAGE_KEY);
 }
 
+// Module-level cache: /chat/[id] navigation remounts ChatClient on every
+// session switch, and without this each mount refetches the list. Mutations
+// below keep the cache in sync. (Cleared on full page load.)
+let providersCache: UserProviderConfig[] | null = null;
+// Dedupes concurrent mounts (StrictMode dev double-mount included).
+let providersInflight: Promise<UserProviderConfig[]> | null = null;
+
+async function loadProvidersFromNetwork(): Promise<UserProviderConfig[]> {
+  const res = await fetch("/api/user/providers");
+  if (!res.ok) throw new Error("Failed to load providers.");
+  const data = await res.json();
+  providersCache = data.providers ?? [];
+  return providersCache ?? [];
+}
+
 export function useProviders() {
   const [providers, setProviders] = useState<UserProviderConfig[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -85,22 +100,35 @@ export function useProviders() {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/user/providers");
-      if (!res.ok) throw new Error("Failed to load providers.");
-      const data = await res.json();
-      const list: UserProviderConfig[] = data.providers ?? [];
+      if (!providersInflight) {
+        providersInflight = loadProvidersFromNetwork().finally(() => {
+          providersInflight = null;
+        });
+      }
+      const list = await providersInflight;
       setProviders(list);
       applySelection(list, selectionRef.current.providerId, selectionRef.current.model);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load providers.");
+      if (providersCache) setProviders(providersCache);
     } finally {
       setIsLoading(false);
     }
   }, [applySelection]);
 
+  // Initial load: serve the module cache instantly when a previous mount
+  // already fetched (session-switch remounts), skipping the network.
   useEffect(() => {
+    if (providersCache) {
+      const list = providersCache;
+      setProviders(list);
+      setIsLoading(false);
+      applySelection(list, selectionRef.current.providerId, selectionRef.current.model);
+      return;
+    }
     refresh();
-  }, [refresh]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // D6: keep selection valid after optimistic create/update/remove
   // (refresh() only runs on load).
@@ -135,7 +163,9 @@ export function useProviders() {
       // D6: optimistic patch instead of full refetch (no loading flicker).
       const created = data.provider as UserProviderConfig;
       const createdModels = Array.isArray(created.models) ? created.models : [];
-      setProviders((prev) => [created, ...prev]);
+      const next = [created, ...providersRef.current];
+      providersCache = next;
+      setProviders(next);
       setError(null);
       applySelection([created], created.id, createdModels[0] ?? null);
       return created;
@@ -154,6 +184,7 @@ export function useProviders() {
       if (!res.ok) throw new Error(data.error || "Failed to update provider.");
       const saved = data.provider as UserProviderConfig;
       const next = providersRef.current.map((p) => (p.id === id ? saved : p));
+      providersCache = next;
       setProviders(next);
       // Keep the selected model valid when its provider's list changes.
       const prevSel = selectionRef.current;
@@ -174,7 +205,9 @@ export function useProviders() {
         throw new Error(data.error || "Failed to delete provider.");
       }
       // D6: optimistic removal; fall back selection locally.
-      setProviders((prev) => prev.filter((p) => p.id !== id));
+      const next = providersRef.current.filter((p) => p.id !== id);
+      providersCache = next;
+      setProviders(next);
       setSelection((prev) => {
         if (prev.providerId !== id) return prev;
         return { providerId: null, model: null }; // resolved to first item by the effect above

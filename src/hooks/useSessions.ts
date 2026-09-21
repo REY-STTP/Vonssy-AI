@@ -11,28 +11,55 @@ interface ChatSession {
   modelProvider: string | null;
 }
 
+// Module-level cache: /chat/[id] navigation remounts ChatClient on every
+// session switch, and without this each mount refetches the list. Mutations
+// below keep the cache in sync; explicit refreshSessions() still hits the
+// network. (Cleared on full page load, e.g. sign-out redirect.)
+let sessionsCache: ChatSession[] | null = null;
+// Dedupes concurrent mounts (StrictMode dev double-mount included): the
+// second mount awaits the same promise instead of firing a duplicate fetch.
+let sessionsInflight: Promise<ChatSession[]> | null = null;
+
+async function loadSessionsFromNetwork(): Promise<ChatSession[]> {
+  const res = await fetch(`/api/sessions?limit=${SIDEBAR_RECENT_SESSIONS_LIMIT}`);
+  if (!res.ok) throw new Error("Failed to load sessions.");
+  const data = await res.json();
+  sessionsCache = data.sessions ?? [];
+  return sessionsCache ?? [];
+}
+
 export function useSessions() {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   /**
    * Fetch recent sessions for the sidebar (capped + pinned always included).
+   * Explicit refreshes always hit the network and renew the cache.
    */
   const fetchSessions = useCallback(async () => {
     try {
-      const res = await fetch(`/api/sessions?limit=${SIDEBAR_RECENT_SESSIONS_LIMIT}`);
-      if (!res.ok) return;
-      const data = await res.json();
-      setSessions(data.sessions);
+      if (!sessionsInflight) {
+        sessionsInflight = loadSessionsFromNetwork().finally(() => {
+          sessionsInflight = null;
+        });
+      }
+      setSessions(await sessionsInflight);
     } catch {
-      // Silently fail
+      // Silently fail (keep stale cache if any)
+      if (sessionsCache) setSessions(sessionsCache);
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  // Initial load
+  // Initial load: serve the module cache instantly when a previous mount
+  // already fetched (session-switch remounts), skipping the network.
   useEffect(() => {
+    if (sessionsCache) {
+      setSessions(sessionsCache);
+      setIsLoading(false);
+      return;
+    }
     fetchSessions();
   }, [fetchSessions]);
 
@@ -49,7 +76,11 @@ export function useSessions() {
       if (!res.ok) return null;
       const data = await res.json();
       // Optimistic update: prepend new session
-      setSessions((prev) => [data.session, ...prev]);
+      setSessions((prev) => {
+        const next = [data.session, ...prev];
+        sessionsCache = next;
+        return next;
+      });
       return data.session.id;
     } catch {
       return null;
@@ -62,11 +93,13 @@ export function useSessions() {
   const renameSession = useCallback(
     async (id: string, newTitle: string) => {
       // Optimistic update
-      setSessions((prev) =>
-        prev.map((s) =>
+      setSessions((prev) => {
+        const next = prev.map((s) =>
           s.id === id ? { ...s, title: newTitle } : s
-        )
-      );
+        );
+        sessionsCache = next;
+        return next;
+      });
 
       try {
         const res = await fetch(`/api/sessions/${id}`, {
@@ -92,7 +125,11 @@ export function useSessions() {
   const deleteSession = useCallback(
     async (id: string) => {
       // Optimistic removal
-      setSessions((prev) => prev.filter((s) => s.id !== id));
+      setSessions((prev) => {
+        const next = prev.filter((s) => s.id !== id);
+        sessionsCache = next;
+        return next;
+      });
 
       try {
         const res = await fetch(`/api/sessions/${id}`, {
@@ -120,7 +157,7 @@ export function useSessions() {
           s.id === id ? { ...s, isPinned } : s
         );
         // Re-sort: pinned first, then by updatedAt
-        return updated.sort((a, b) => {
+        const next = updated.sort((a, b) => {
           if (a.isPinned && !b.isPinned) return -1;
           if (!a.isPinned && b.isPinned) return 1;
           return (
@@ -128,6 +165,8 @@ export function useSessions() {
             new Date(a.updatedAt || 0).getTime()
           );
         });
+        sessionsCache = next;
+        return next;
       });
 
       try {
@@ -154,7 +193,9 @@ export function useSessions() {
       setSessions((prev) => {
         // Avoid duplicates
         if (prev.some((s) => s.id === session.id)) return prev;
-        return [session, ...prev];
+        const next = [session, ...prev];
+        sessionsCache = next;
+        return next;
       });
     },
     []
