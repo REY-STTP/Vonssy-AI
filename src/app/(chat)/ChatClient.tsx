@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import Sidebar from "@/components/chat/Sidebar";
 import ChatHeader from "@/components/chat/ChatHeader";
 import MessageThread from "@/components/chat/MessageThread";
@@ -27,10 +28,12 @@ interface ChatClientProps {
     avatarSeed?: string | null;
     shareProfileWithAi?: boolean | null;
   };
+  initialSessionId: string | null;
 }
 
-export default function ChatClient({ user }: ChatClientProps) {
-  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+export default function ChatClient({ user, initialSessionId }: ChatClientProps) {
+  const router = useRouter();
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(initialSessionId);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<"profile" | "providers" | "appearance" | "data">("profile");
@@ -56,16 +59,26 @@ export default function ChatClient({ user }: ChatClientProps) {
   const userProviders = useProviders();
   const { providers, selectedProvider, selectedModel, select, isLoading: providersLoading } = userProviders;
 
+  // Session created mid-stream (first message of a new chat): the URL is
+  // synced immediately with replaceState (a real navigation would unmount
+  // and abort the in-flight stream), and the session is adopted locally
+  // only once the stream settles (handleMessageComplete below).
+  const pendingSessionRef = useRef<string | null>(null);
+
   // D3: stable callbacks so useChat's sendMessage keeps its identity.
   const handleSessionCreated = useCallback(
     (sessionId: string) => {
-      setActiveSessionId(sessionId);
       refreshSessions();
+      pendingSessionRef.current = sessionId;
+      window.history.replaceState(null, "", `/chat/${sessionId}`);
     },
     [refreshSessions]
   );
   const handleMessageComplete = useCallback(() => {
     refreshSessions();
+    const pending = pendingSessionRef.current;
+    pendingSessionRef.current = null;
+    if (pending) setActiveSessionId(pending);
   }, [refreshSessions]);
 
   const {
@@ -88,6 +101,13 @@ export default function ChatClient({ user }: ChatClientProps) {
     onMessageComplete: handleMessageComplete,
   });
 
+  // Stay in sync with the route (back/forward navigation remounts with a
+  // new initialSessionId; this is belt-and-braces for the same instance).
+  useEffect(() => {
+    setActiveSessionId(initialSessionId);
+    setFallbackSession(null);
+  }, [initialSessionId]);
+
   useEffect(() => {
     if (activeSessionId) {
       loadMessages(activeSessionId);
@@ -96,29 +116,26 @@ export default function ChatClient({ user }: ChatClientProps) {
     }
   }, [activeSessionId, loadMessages, clearMessages]);
 
-  const handleNewChat = useCallback(async () => {
-    setActiveSessionId(null);
-    clearMessages();
-  }, [clearMessages]);
+  const handleNewChat = useCallback(() => {
+    router.push("/");
+  }, [router]);
 
   const handleSelectSession = useCallback(
     (id: string) => {
       if (id === activeSessionId) return;
-      setActiveSessionId(id);
-      setFallbackSession(null);
+      router.push(`/chat/${id}`);
     },
-    [activeSessionId]
+    [activeSessionId, router]
   );
 
   const handleDeleteSession = useCallback(
     async (id: string) => {
       await deleteSession(id);
       if (activeSessionId === id) {
-        setActiveSessionId(null);
-        clearMessages();
+        router.push("/");
       }
     },
-    [deleteSession, activeSessionId, clearMessages]
+    [deleteSession, activeSessionId, router]
   );
 
   const handleToggleCollapse = useCallback(() => {
@@ -140,11 +157,11 @@ export default function ChatClient({ user }: ChatClientProps) {
 
   const handleSelectSessionFromAllChats = useCallback(
     (id: string, title: string | null, isPinned: boolean | null) => {
-      setActiveSessionId(id);
       setFallbackSession({ id, title, isPinned });
       setIsAllChatsOpen(false);
+      router.push(`/chat/${id}`);
     },
-    []
+    [router]
   );
 
   const openManageProviders = useCallback(() => handleOpenSettings("providers"), [handleOpenSettings]);

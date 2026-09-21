@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import type { UserProviderConfig } from "./useProviders";
 import type { ReasoningEffort } from "@/lib/ai-providers/types";
@@ -75,6 +75,16 @@ export function useChat({
   currentSessionIdRef.current = sessionId;
 
   const loadAbortRef = useRef<AbortController | null>(null);
+
+  // Navigation now remounts per session (/chat/[id]): abort any in-flight
+  // stream and message load on unmount so orphan requests can't resolve
+  // into the wrong instance (and to stop burning provider tokens).
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+      loadAbortRef.current?.abort();
+    };
+  }, []);
 
   // D4: abortable load — fast session switches can't resolve out of order.
   // With onlyIfCurrent, a late resolve is dropped when the user has moved

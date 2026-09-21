@@ -1,6 +1,6 @@
 # Vonssy AI
 
-A BYOK AI chatbot — each user connects their own OpenAI-compatible endpoints (API URL + key + model) through one unified interface.
+A BYOK AI chatbot — each user connects their own OpenAI-compatible endpoints (API URL + key + models) through one unified interface.
 
 Built by **Vonssy, the Heavenly Demon King**.
 
@@ -9,15 +9,17 @@ Built by **Vonssy, the Heavenly Demon King**.
 ## ✨ Features
 
 ### Core Chat
-- **BYOK Multi-Provider** — Each user stores N custom configs (`label, baseUrl, apiKey, model`) via Settings → Providers. Each provider holds N model IDs under one URL + key. Any OpenAI-compatible API works.
+- **BYOK Multi-Provider** — Each user stores N custom configs (`label, baseUrl, apiKey, models[]`) via Settings → Providers. Each provider holds up to 20 model IDs under one URL + key. Any OpenAI-compatible API works.
+- **Reasoning Effort** — Per-message Low / Medium / High / XHigh / None selector (default None). `reasoning_effort` is omitted entirely when None; the default temperature is omitted alongside reasoning to satisfy reasoning-model constraints; a 400 that mentions reasoning is retried once without the parameter.
 - **Encrypted at rest** — API keys stored AES-256-GCM in `user_ai_models`; clients only ever see `****last4`.
 - **Real-time Streaming** — Server-Sent Events (SSE) stream AI responses token-by-token with live typing indicator.
 - **Test connection** — One-click non-streaming `POST {baseUrl}/chat/completions` check before chatting.
 - **Message Editing** — Edit any user message and regenerate the AI response from that point (truncation-based edit with DB cleanup).
-- **Regeneration** — Regenerate any AI response to get a different answer.
+- **Regeneration** — Regenerate any AI response to get a different answer. Replacement (never append) is guaranteed even after stop/error via early id reconciliation, post-failure reload, and an in-flight send guard.
 - **Message Feedback** — Like/dislike individual AI responses, persisted to the database.
 
 ### Session Management
+- **Per-session URLs** — Every session lives at `/chat/[id]` (deep-linkable, back/forward friendly, survives refresh). IDs are validated server-side for format + ownership; unknown/foreign IDs render the custom 404, and the tab title follows the session title.
 - **Persistent Chat History** — All sessions and messages stored in PostgreSQL with cursor-based pagination.
 - **Sidebar** — Collapsible sidebar listing pinned sessions and recent chats. Supports rename, pin/unpin, and delete with real-time UI updates.
 - **All Chats Overlay** — Virtualized (via `@tanstack/react-virtual`) full-screen modal listing all chat sessions with search, pinned filter, and infinite scroll pagination.
@@ -27,7 +29,7 @@ Built by **Vonssy, the Heavenly Demon King**.
 ### Authentication & Security
 - **Google & GitHub OAuth** — Dual provider sign-in via Auth.js (NextAuth v5) with Drizzle adapter for database sessions.
 - **Route Protection** — Next.js 16 proxy (Node.js runtime) redirects unauthenticated users. Every API route independently re-validates sessions server-side (CVE-2025-29927 mitigation). If `NEXTAUTH_URL` is set, the proxy also enforces it as the canonical host (localhost exempt).
-- **Per-user ownership checks** — Every model config and chat session query is scoped `WHERE id + userId`; foreign IDs return 404, never 403-differentiated.
+- **Per-user ownership checks** — Every provider config and chat session query is scoped `WHERE id + userId`; foreign IDs return 404, never 403-differentiated.
 - **SSRF guard** — User-supplied `baseUrl` is validated (https-only, block metadata/private IPs) before any server fetch.
 
 ### Personalization
@@ -45,6 +47,7 @@ Built by **Vonssy, the Heavenly Demon King**.
 - **Smart Scroll Button** — Floating button that points down when scrolled up, and automatically transforms into an up-arrow when at the bottom of the thread.
 - **Responsive Design** — Mobile-optimized sidebar drawer, responsive settings modal with horizontal tab strip, auto-collapse sidebar on mobile navigation.
 - **Toast Notifications** — Sonner toasts with inverted colors for light mode visibility and native styling for dark mode.
+- **Two-row Composer** — Full-width textarea on top; provider picker, reasoning selector, and send grouped below with uniform sizing.
 - **Keyboard Shortcuts** — Enter to send, Shift+Enter for newline, Escape to cancel editing.
 - **404 Page** — Custom not-found page with bilingual text and branded design.
 - **Reduced Motion** — Respects `prefers-reduced-motion` media query.
@@ -79,7 +82,7 @@ Built by **Vonssy, the Heavenly Demon King**.
 - A PostgreSQL database (e.g. [Supabase](https://supabase.com/))
 - Google OAuth credentials ([console.cloud.google.com](https://console.cloud.google.com/apis/credentials))
 - GitHub OAuth credentials ([github.com/settings/applications/new](https://github.com/settings/applications/new))
-- An OpenAI-compatible API endpoint of your own (URL + key + model ID) — the app is BYOK, no server-side gateway keys needed
+- An OpenAI-compatible API endpoint of your own (URL + key + model IDs) — the app is BYOK, no server-side gateway keys needed
 
 ### Setup
 
@@ -144,7 +147,9 @@ src/
 │   │   ├── LoginText.tsx       # i18n text components
 │   │   └── LoginLanguageSelector.tsx  # Language & theme toggle (client)
 │   ├── (chat)/                 # Main chat interface
-│   │   ├── page.tsx            # Server component (auth gate)
+│   │   ├── page.tsx            # New chat (auth gate, no active session)
+│   │   ├── chat/[id]/          # Per-session URL (server-validated id + title metadata)
+│   │   │   └── page.tsx        # Chat session page → ChatClient with initialSessionId
 │   │   └── ChatClient.tsx      # Client orchestrator (sidebar, thread, composer)
 │   ├── api/
 │   │   ├── auth/[...nextauth]/ # NextAuth route handler
@@ -169,8 +174,8 @@ src/
 │   │   ├── Sidebar.tsx         # Collapsible sidebar with pin/rename/delete
 │   │   ├── ChatHeader.tsx      # Session title, model badge, kebab menu
 │   │   ├── MessageThread.tsx   # Message list with edit, regenerate, feedback
-│   │   ├── Composer.tsx        # Chat input with user-provider selector
-│   │   ├── ProviderDropdown.tsx # User-provider picker grouped by host
+│   │   ├── Composer.tsx        # Two-row chat input (textarea + provider/reasoning/send)
+│   │   ├── ProviderDropdown.tsx # User-provider picker grouped by provider
 │   │   ├── AllChatsModal.tsx   # Virtualized all-chats overlay
 │   │   ├── SettingsModal.tsx   # Settings (profile, providers, appearance, data)
 │   │   └── MarkdownRenderer.tsx # Markdown + syntax highlighting (PrismLight)
@@ -182,21 +187,22 @@ src/
 │   ├── useChat.ts              # Chat state, streaming, edit, regenerate (BYOK)
 │   ├── useSessions.ts          # Session CRUD, pin, rename, delete
 │   ├── useAllChats.ts          # Paginated all-chats with search/filter
-│   ├── useProviders.ts         # User provider configs CRUD + selection
+│   ├── useProviders.ts       # Provider configs CRUD + (provider, model) selection
 │   ├── useFocusTrap.ts         # Tab-trap for modals
 │   ├── useLocale.ts            # i18n hook (EN/ID)
 │   └── useReadingFont.ts       # Reading font preference
 │
 ├── lib/
 │   ├── ai-providers/
-│   │   ├── gateway-client.ts   # Per-request OpenAI-compatible client (BYOK)
-│   │   ├── types.ts            # Shared types (AIProvider, TokenUsage)
+│   │   ├── gateway-client.ts   # Per-request OpenAI-compatible client (BYOK, reasoning fallback)
+│   │   ├── types.ts            # Shared types (AIProvider, TokenUsage, ReasoningEffort)
 │   │   └── index.ts            # Public exports
 │   ├── db/
 │   │   ├── schema.ts           # Drizzle schema (users, sessions, messages, user_ai_models, etc.)
 │   │   └── client.ts           # Drizzle client (postgres.js driver)
 │   ├── user-providers/
-│   │   └── validation.ts       # Label/URL/key/model validation + masking
+│   │   └── validation.ts       # Label/URL/key/model-list validation + masking
+│   ├── chat-user.ts            # Shared chat-page user loader (both chat routes)
 │   ├── auth.ts                 # Auth.js full config (with DB adapter)
 │   ├── auth.config.ts          # Edge-compatible auth config (providers only)
 │   ├── constants.ts            # App-wide constants
@@ -234,7 +240,7 @@ migrate.js                      # Migration runner (loads .env.local, per-file t
 | `chat_sessions` | Chat sessions with title, pinned status, model label |
 | `messages` | Chat messages with role, content, provider label/model snapshot, feedback |
 | `usage_logs` | Token usage tracking per message (prompt/completion tokens, latency) |
-| `user_ai_models` | Per-user BYOK configs: label, base_url, encrypted key + hint, model |
+| `user_ai_models` | Per-user BYOK configs: label, base_url, encrypted key + hint, models array |
 | `throttle_buckets` | Fixed-window abuse-throttle counters shared across instances |
 
 ---

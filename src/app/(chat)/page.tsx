@@ -1,85 +1,20 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { db } from "@/lib/db/client";
-import { accounts, users } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { getChatUser } from "@/lib/chat-user";
 import ChatClient from "./ChatClient";
 
 /**
- * Main chat page — server component that validates auth,
- * then renders the client-side chat interface.
+ * New chat page (/) — server component that validates auth,
+ * then renders the client-side chat interface with no active session.
+ * Per-session URLs live under /chat/[id].
  */
 export default async function ChatPage() {
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user?.id) {
     redirect("/login");
   }
 
-  // Fetch OAuth provider, preferred name, user creation date, and avatar settings
-  let provider: string | null = null;
-  let createdAt: string | null = null;
-  let preferredName: string | null = null;
-  let dateOfBirth: string | null = null;
-  let avatarSource: string = "oauth";
-  let avatarStyle: string | null = null;
-  let avatarSeed: string | null = null;
-  let shareProfileWithAi = false;
+  const user = await getChatUser(session.user.id, session.user);
 
-  if (session.user.id) {
-    const [account] = await db
-      .select({ provider: accounts.provider })
-      .from(accounts)
-      .where(eq(accounts.userId, session.user.id))
-      .limit(1);
-    if (account) {
-      provider = account.provider;
-    }
-
-    const [userData] = await db
-      .select({
-        createdAt: users.createdAt,
-        preferredName: users.preferredName,
-        dateOfBirth: users.dateOfBirth,
-        avatarSource: users.avatarSource,
-        avatarStyle: users.avatarStyle,
-        avatarSeed: users.avatarSeed,
-        shareProfileWithAi: users.shareProfileWithAi,
-      })
-      .from(users)
-      .where(eq(users.id, session.user.id))
-      .limit(1);
-    if (userData?.createdAt) {
-      createdAt = userData.createdAt.toISOString();
-    }
-    if (userData?.preferredName) {
-      preferredName = userData.preferredName;
-    }
-    if (userData?.dateOfBirth) {
-      dateOfBirth = userData.dateOfBirth;
-    }
-    if (userData?.avatarSource) {
-      avatarSource = userData.avatarSource;
-    }
-    avatarStyle = userData?.avatarStyle ?? null;
-    avatarSeed = userData?.avatarSeed ?? null;
-    shareProfileWithAi = userData?.shareProfileWithAi ?? false;
-  }
-
-  return (
-    <ChatClient
-      user={{
-        name: session.user.name,
-        email: session.user.email,
-        image: session.user.image,
-        provider,
-        createdAt,
-        preferredName,
-        dateOfBirth,
-        avatarSource,
-        avatarStyle,
-        avatarSeed,
-        shareProfileWithAi,
-      }}
-    />
-  );
+  return <ChatClient user={user} initialSessionId={null} />;
 }
