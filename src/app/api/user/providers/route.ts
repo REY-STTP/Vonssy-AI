@@ -78,6 +78,9 @@ export async function POST(request: Request) {
       return Response.json({ error: `Maximum ${MAX_PER_USER} providers per user.` }, { status: 400 });
     }
 
+    // Overlap check via ARRAY[...] of bound scalars: passing the JS array
+    // as a single bound param fails on this driver (simple protocol
+    // serializes it as a scalar → "malformed array literal").
     const dup = await db
       .select({ id: userAiModels.id })
       .from(userAiModels)
@@ -85,7 +88,7 @@ export async function POST(request: Request) {
         and(
           eq(userAiModels.userId, session.user.id),
           eq(userAiModels.baseUrl, baseUrl),
-          sql`${userAiModels.models} && ${models}`
+          sql`${userAiModels.models} && ARRAY[${sql.join(models.map((m) => sql`${m}`))}]`
         )
       )
       .limit(1);
