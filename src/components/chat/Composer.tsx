@@ -164,7 +164,7 @@ function Composer({
                 </svg>
                 {reasoningEffort && (
                   <span className="ml-1 text-[10px] uppercase font-bold tracking-wider hidden sm:block">
-                    {reasoningEffort === "max" ? "Max" : reasoningEffort.charAt(0)}
+                    {reasoningEffort.charAt(0)}
                   </span>
                 )}
               </button>
@@ -174,7 +174,13 @@ function Composer({
                   aria-label={t("composer.reasoningLabel")}
                   className="absolute bottom-full right-0 mb-2 w-32 bg-surface border border-border rounded-lg shadow-dropdown overflow-hidden animate-fade-in z-50"
                 >
-                  {(["low", "medium", "high", "max"] as const).map((level) => (
+                  {(Object.entries({
+                    low: "Low",
+                    medium: "Medium",
+                    high: "High",
+                    xhigh: "XHigh",
+                    none: "None",
+                  }) as [ReasoningEffort, string][]).map(([level, label]) => (
                     <button
                       key={level}
                       type="button"
@@ -190,7 +196,7 @@ function Composer({
                           : "text-text-primary hover:bg-surface-raised"
                       }`}
                     >
-                      {level.charAt(0).toUpperCase() + level.slice(1)}
+                      {label}
                     </button>
                   ))}
                 </div>

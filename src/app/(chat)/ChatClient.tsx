@@ -35,7 +35,7 @@ export default function ChatClient({ user }: ChatClientProps) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<"profile" | "providers" | "appearance" | "data">("profile");
   const [isAllChatsOpen, setIsAllChatsOpen] = useState(false);
-  const [reasoningEffort, setReasoningEffort] = useState<ReasoningEffort>("medium");
+  const [reasoningEffort, setReasoningEffort] = useState<ReasoningEffort>("none");
   const [fallbackSession, setFallbackSession] = useState<{ id: string, title: string | null, isPinned: boolean | null } | null>(null);
   const { t } = useLocale();
 

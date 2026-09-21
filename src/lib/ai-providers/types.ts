@@ -24,7 +24,7 @@ export interface StreamChunk {
   isRateLimited?: boolean;
 }
 
-export type ReasoningEffort = "low" | "medium" | "high" | "max";
+export type ReasoningEffort = "low" | "medium" | "high" | "xhigh" | "none";
 
 export interface ChatOptions {
   model: string;

@@ -117,9 +117,10 @@ export async function POST(request: NextRequest) {
     body.reasoningEffort !== "low" &&
     body.reasoningEffort !== "medium" &&
     body.reasoningEffort !== "high" &&
-    body.reasoningEffort !== "max"
+    body.reasoningEffort !== "xhigh" &&
+    body.reasoningEffort !== "none"
   ) {
-    return chatBad("reasoningEffort must be 'low', 'medium', 'high', or 'max'.");
+    return chatBad("reasoningEffort must be 'low', 'medium', 'high', 'xhigh', or 'none'.");
   }
   if (
     body.editContent !== undefined &&
