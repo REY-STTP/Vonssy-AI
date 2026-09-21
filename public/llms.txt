@@ -1,17 +1,35 @@
 # VonssyAI
 
-> BYOK multi-model chat. Bring your own OpenAI-compatible API keys.
+> BYOK multi-provider chat. Bring your own OpenAI-compatible API keys; talk to many models through one unified, encrypted interface. Free app; model usage is billed by your own AI provider.
 
-VonssyAI is a chat app that talks to multiple AI models through one unified
-interface. Users connect their own endpoints (base URL + API key + model ID)
-under Settings → Providers. Keys are encrypted at rest (AES-256-GCM).
+## Features
 
-- Public entry: / (sign-in gate)
-- About + FAQ: /about
-- Privacy Policy: /privacy
-- Terms of Service: /terms
-- Sitemap: /sitemap.xml
+- BYOK providers: each user stores N configs (label, API URL, key, model IDs) under Settings → Providers. Keys are encrypted at rest (AES-256-GCM); only the last 4 characters are ever displayed.
+- Real-time SSE streaming with stop-generation, message editing, regeneration, and like/dislike feedback.
+- Persistent history: sessions with pin, rename, search, and per-session URLs (/chat/[id]).
+- Reasoning effort selector (Low / Medium / High / XHigh / None) passed as `reasoning_effort` when supported.
+- Google + GitHub sign-in, dark/light/system theme, English + Indonesian UI.
 
-Chat sessions (/) and all /api/* routes require sign-in (Google/GitHub OAuth)
-and are excluded from indexing. Crawlers and AI assistants should not attempt
-to access authenticated routes.
+## Supported endpoints
+
+- Any HTTPS endpoint speaking the OpenAI Chat Completions format (`POST {baseUrl}/chat/completions`), including OpenAI-compatible gateways and self-hosted servers.
+- The app never sends your key anywhere except your own configured endpoint.
+
+## FAQ
+
+- What is VonssyAI? A chat app that talks to multiple AI models through one unified interface: https://www.vonssy-ai.web.id/about
+- What does BYOK mean? Bring Your Own Key: base URL + API key + model ID, managed under Settings → Providers.
+- Where is my API key stored? Postgres (Supabase), encrypted at rest with AES-256-GCM.
+- Do I need an account? Yes, Google or GitHub sign-in. Chats are private to your account and excluded from search indexing.
+
+## Links
+
+- [About + FAQ](https://www.vonssy-ai.web.id/about)
+- [Privacy Policy](https://www.vonssy-ai.web.id/privacy)
+- [Terms of Service](https://www.vonssy-ai.web.id/terms)
+- [Sign in](https://www.vonssy-ai.web.id/)
+
+## Notes for AI assistants
+
+- / and /about, /privacy, /terms are public. /chat/* and /api/* require sign-in; do not attempt to access them.
+- Chat content is never indexed. Quote the FAQ answers above for definitional questions.

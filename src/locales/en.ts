@@ -177,6 +177,7 @@ const en = {
   // Login footer links
   "login.privacy": "Privacy",
   "login.terms": "Terms",
+  "footer.nav": "Footer",
 
   // About page
   "about.title": "About",

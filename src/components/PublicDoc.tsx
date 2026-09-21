@@ -45,7 +45,7 @@ export default function PublicDoc({
         ) : null}
         {children}
         <nav
-          aria-label={t("settings.title")}
+          aria-label={t("footer.nav")}
           className="mt-10 pt-6 border-t border-border flex items-center justify-center gap-2 text-xs text-text-secondary"
         >
           <Link href="/about" className="hover:text-accent underline underline-offset-2 transition-colors">

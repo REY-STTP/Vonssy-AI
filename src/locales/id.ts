@@ -146,6 +146,7 @@ const id: Record<LocaleKeys, string> = {
   // Login footer links
   "login.privacy": "Privasi",
   "login.terms": "Ketentuan",
+  "footer.nav": "Footer",
 
   // About page
   "about.title": "Tentang",
